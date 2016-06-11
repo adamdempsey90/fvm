@@ -1,0 +1,7 @@
+*.o
+*.bin
+*.bbl
+*.log
+*.gz
+*.blg
+*.aux

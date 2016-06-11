@@ -1,0 +1,119 @@
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+
+\section{HLLC overview}
+
+The HLLC solver puts the contact wave back into the HLL solver. 
+
+\begin{enumerate}
+\item Get wave speeds $S_L$, $S_\star$, $S_R$.
+\item Construct $\mathbf{U}_L^\star$ and $\mathbf{U}_R^\star$.
+\item Calculate $\mathbf{F}_*^{hllc}$.
+\end{enumerate}
+
+
+
+\section{Wave speeds}
+Wave speeds are obtained from approximate simple Riemann solvers depending on the left-right states. These solvers are the primitive variable RS (PVRS), the two-rarefaction RS (TRRS), and the two-shock RS (TSRS). If the pressure jump at the interface is less than a user specified ratio (typically, $p_{max}/p_{pmin} < 2$) then the flow is smooth and the PVRS is used to estimate $p_\star$ and $u_\star$. If the pressure jump is larger than this ratio, there is likely either a shock or a rarefaction present. If the interface pressure, $p_\star$, given from the PVRS is less than $p_{min}$, then the rarefaction solver, TRRS, is used, else the shock solver, TSRS, is used. 
+
+The estimates for the three approximate solvers for the pressure and velocity are,
+
+\begin{equation}
+p_{pvrs} = \frac{1}{2} ( p_L + p_R) - \frac{1}{2} ( u_R - u_L) C
+\end{equation}
+\begin{equation}
+u_{pvrs} = \frac{1}{2} (u_L + u_R) - \frac{1}{2} \frac{ p_R - p_L}{C}
+\end{equation}
+\begin{equation}
+C = \frac{\rho_L + \rho_R}{2} \frac{a_L + a_R}{2}
+\end{equation}
+
+\begin{equation}
+p_{trrs} = \left[ \frac{a_L+a_R - \frac{\gamma -1}{2} ( u_R - u_L)}{a_L/p_L^z + a_r/p_R^z}\right]^z
+\end{equation}
+\begin{equation}
+u_{trrs} = \frac{P_{LR} u_L/a_L + u_R/a_R + \frac{2(P_{LR}-1)}{\gamma -1}}{P_{LR}/a_L + 1/a_R}
+\end{equation}
+\begin{equation}
+z = \frac{\gamma -1}{2 \gamma} \qquad P_{LR} = \left( \frac{p_L}{p_R} \right)^z
+\end{equation}
+\begin{equation}
+p_{tsrs} = \frac{g_L(p_0) p_L + g_R(p_0) p_R - (u_R - u_L)}{g_L(p_0) + g_r(p_0)}
+\end{equation}
+\begin{equation}
+u_{tsrs} = \frac{1}{2} (u_L + u_R) + \frac{1}{2}\left[ (p_{tsrs}-p_R) g_R(p_0) - (p_{tsrs} - p_L) g_L(p_0) \right]
+\end{equation}
+\begin{equation}
+g_K (p) =\sqrt{\frac{ A_K}{p + B_K}} \qquad p_0 = max(0,p_{pvrs})
+\end{equation}
+\begin{equation}
+A_K =  \frac{2}{\rho_K ( \gamma + 1 ) } \qquad B_K = \left( \frac{\gamma -1}{\gamma + 1} \right) p_K
+\end{equation}
+
+The estimates for the interface pressure and velocity are then,
+
+\begin{equation}
+p_\star,u_\star = 
+\begin{cases}
+p_{pvrs},u_{pvrs} & \frac{p_{max}}{p_{min}} < 2 \\
+p_{trrs}, u_{trrs} & \frac{p_{max}}{p_{min}} > 2 \, \text{and} \, p_{pvrs} < p_{max} \\ 
+p_{tsrs}, u_{tsrs} & \frac{p_{max}}{p_{min}} > 2 \, \text{and} \, p_{pvrs} > p_{max} \\ 
+\end{cases}
+\end{equation}
+
+Now that we have $p_\star$ and $u_star$ we can calculate the minimum, maxmimum and intermediate wave speeds as,
+
+\begin{equation}
+S_L = u_L - a_L q_L
+\end{equation}
+\begin{equation}
+S_L = u_R + a_R q_R
+\end{equation}
+\begin{equation}
+S_\star = \frac{ p_R - p_L + \rho_L u_L (S_L - u_L) - \rho_R u_R (S_R - u_R)}{\rho_L (S_L - u_L) - \rho_R (S_R - u_R)}
+\end{equation}
+\begin{equation}
+q_K = 
+\begin{cases}
+1 & p_\star \le p_K \\
+\sqrt{ 1 + \frac{\gamma +1}{2 \gamma}\left( \frac{p_\star}{p_K} - 1 \right)} & p_\star > p_K
+\end{cases}
+\end{equation}
+
+\section{Star region}
+Now that we have the wave speeds the conservative left and right states in the starred region are,
+
+\begin{equation}
+\mathbf{U}_K^\star = \rho_K \left( \frac{ S_K - u_K}{S_K - S_\star} \right) \left[
+\begin{matrix}
+1 \\ 
+S_\star \\
+v_K \\
+w_K \\
+\frac{E_K}{\rho_K} + (S_\star - u_K) \left[ S_\star  + \frac{p_K}{\rho_K(S_K-u_K)} \right]
+\end{matrix}
+\right]
+\end{equation}
+Additionally, any passive scalar is advected in the same way as the tangential velocities, i.e
+\begin{equation}
+(\rho q)_\star^K = \rho_K \left( \frac{S_K - u_K}{S_K - S_\star} \right) q_k
+\end{equation}
+
+
+\section{Final flux}
+
+Finally, the HLLC flux is,
+
+\begin{equation}
+\mathbf{F}_{i+1/2}^{hllc} = 
+\begin{cases}
+\mathbf{F}_L & 0 \le S_L \\
+\mathbf{F}_L + S_L(\mathbf{U}_\star^L - \mathbf{U}_L) & S_L \le 0 \le S_\star \\
+\mathbf{F}_R + S_R(\mathbf{U}_\star^R - \mathbf{U}_R) & S_\star \le 0 \le S_R \\
+\mathbf{F}_R & 0 \ge S_R \\
+\end{cases}
+\end{equation}
+
+
+\end{document}
