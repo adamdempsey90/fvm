@@ -12,10 +12,7 @@ void algogas(double dt_max) {
 
     boundary();
     double dt = fmin(cfl(),dt_max);
-    source_step(dt);
-//    muscle_hancock(dt);
     ctu(dt);
-    viscosity(dt);
 
     return;
 }

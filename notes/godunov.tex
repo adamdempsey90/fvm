@@ -1,5 +1,9 @@
 \documentclass{article}
 \usepackage{amsmath}
+\usepackage[margin=1in]{geometry}
+\newcommand{\pderiv}[1]{\frac{\partial }{\partial #1}}
+\newcommand{\ppderiv}[2]{\frac{\partial #1}{\partial #2}}
+\newcommand{\del}{\mathbf{\nabla}}
 \begin{document}
 
 \section{Godunov Method}
@@ -181,5 +185,88 @@ Finally, the HLLC flux is,
 \end{cases}
 \end{equation}
 
+\section{Equations of motion for orthogonal coordinate system}
+For an orthogonal coordinate system $(x_i,x_j,x_k)$ with diagonal metric $g_{ij} = h_ i^2 \delta_{ij}$, scale factors $h_i$, coordinate vectors  $\mathbf{e}_i = h_i \hat{\mathbf{e}}_i $, the volume element is $\Delta V = dv \Delta x_1 \Delta x_2 \Delta x_3$ where $dv \equiv h_1 h_2 h_3$, the surface area elements are, $\Delta S_i = ds_i \Delta x_j \Delta x_k$, and where $ds_i \equiv dv / h_i$, where $i,j,k$ are cyclic indices (so no Einstein summation)
+
+The gradient of a scalar, $\Phi$ is,
+\begin{equation}
+\del \Phi = \frac{1}{h_i} \ppderiv{\Phi}{x_i} \hat{\mathbf{x}}_i  + \frac{1}{h_j} \ppderiv{\Phi}{x_j} \hat{\mathbf{x}}_j + \frac{1}{h_k} \ppderiv{\Phi}{x_k} \hat{\mathbf{x}}_k 
+\end{equation}
+The Laplacian is,
+\begin{equation}
+dv \nabla^2 \Phi = \pderiv{x_i}\left( \frac{ds_i}{h_i} \ppderiv{\Phi}{x_i} \right) + \pderiv{x_j}\left( \frac{ds_j}{h_j} \ppderiv{\Phi}{x_j}\right)  + \pderiv{x_k}\left( \frac{ds_k}{h_k}\ppderiv{\Phi}{x_k}\right) 
+\end{equation}
+The divergence of a vector $\mathbf{v}$ is,
+\begin{equation}
+d v (\del \cdot \mathbf{v}) = \pderiv{x_i} \left( ds_i v_i \right) +\pderiv{x_j} \left( ds_j v_j \right) +\pderiv{x_k} \left( ds_k v_k \right)  
+\end{equation}
+The divergence of a vector $\mathbf{v}$ is,
+\begin{equation}
+ds_i \left(\del \times \mathbf{v} \right) \cdot \hat{\mathbf{x}}_i = \pderiv{x_j} \left( h_k v_k \right) - \pderiv{x_k} \left( h_j v_j \right)
+\end{equation}
+The divergence of a tensor, $\mathbf{T}$, is, 
+\begin{align} 
+d v \left(\del \cdot \mathbf{T} \right) \cdot \hat{\mathbf{x}}_i &= \pderiv{x_i} \left( ds_i T_{ii} \right)  +  \pderiv{x_j} \left( ds_j T_{ij} \right) +  \pderiv{x_k} \left( ds_k T_{ik} \right)  \nonumber \\
+&+  T_{ij} ds_j  \frac{1}{h_i} \ppderiv{h_i}{x_j}+ T_{ki} ds_k \frac{1}{h_i} \ppderiv{h_i}{x_k} - T_{jj} ds_i \frac{1}{h_j} \ppderiv{h_j}{x_i} - T_{kk} ds_i \frac{1}{h_k} \ppderiv{h_k}{x_i}
+\end{align}
+
+We can simplify this further for symmetric tensors, $\mathbf{T} = \mathbf{S}$, and diagonal tensors, $T_{ij} = P \delta_{i,j}$
+\begin{align}
+dv \left(\del \cdot \mathbf{S} \right)\cdot \hat{\mathbf{x}}_i &= \pderiv{x_i} \left( ds_i S_{ii} \right)  +  \frac{1}{h_i}\pderiv{x_j} \left( h_i ds_j S_{ij} \right) +  \frac{1}{h_i} \pderiv{x_k} \left( h_i ds_k S_{ik} \right) - S_{jj} h_k \ppderiv{h_j}{x_i} - S_{kk} h_j  \ppderiv{h_k}{x_i}  \\
+dv \left(\del \cdot \mathbf{P} \right)\cdot \hat{\mathbf{x}}_i  &= \pderiv{x_i} \left( ds_i P \right)   -  P \ppderiv{(ds_i)}{x_i}  
+\end{align}
+where again the indices $ijk$ are not summed over but instead are cyclic $i \rightarrow j \rightarrow k$.
+The point of this form is that if you have a coordinate system where the scale factors only depend on one of the coordinates, then then the non divergence terms for a symmetric tensor will be zero in two of the directions. This is useful for conservation properties. 
+The diagonal tensor non-divergence term evaluates to $-P$.
+
+
+
+For the Euler equations we have,
+
+\begin{align}
+dv \ppderiv{(\rho v_i)}{t} &+ \pderiv{x_i} \left( ds_i (\rho v_i^2 + P) \right) + \frac{1}{h_i} \pderiv{x_j} \left(h_i ds_j  \rho v_i v_j \right) + \frac{1}{h_i} \pderiv{x_k} \left(h_i ds_k \rho v_i v_k \right)  \nonumber \\ 
+&- \rho v_j^2  h_k \ppderiv{h_j}{x_i} - \rho v_k^2 h_j \ppderiv{h_k}{x_i} - P \ppderiv{(ds_i)}{x_i} \\ 
+dv \ppderiv{\rho}{t} &+ \pderiv{x_i} \left( ds_i \rho v_i \right) +\pderiv{x_j} \left( ds_j \rho v_j \right) +\pderiv{x_k} \left( ds_k \rho v_k \right)  = 0 \\
+dv \ppderiv{E}{t} &+ \pderiv{x_i} \left( ds_i (E + P) v_i \right) +\pderiv{x_j} \left( ds_j (E + P)  v_j \right) +\pderiv{x_k} \left( ds_k (E + P) v_k \right)  = 0 \\
+\end{align}
+where $E = P/(\gamma-1) + \rho v^2/2$.
+
+All fluxes are then weighted by the surface area of the cell's face in the update equation,
+\begin{equation}
+\frac{d}{dt} \frac{1}{V} \int dV Q  + \frac{1}{V} \left( S^+ F^+ - S^- F^- \right) = \frac{1}{V} \int dV S
+\end{equation}
+
+\subsubsection{Cartsian}
+In cartesian all scale factors are unity, $h = 1, ds = 1, dv=1$.
+\begin{align}
+\ppderiv{(\rho v_i)}{t} &+ \pderiv{x_i} \left(\rho v_i^2 + P \right) +  \pderiv{x_j} \left( \rho v_i v_j \right) + \pderiv{x_k} \left( \rho v_i v_k \right)  = 0 \\ 
+ \ppderiv{\rho}{t} &+ \pderiv{x_i} \left( \rho v_i \right) +\pderiv{x_j} \left( \rho v_j \right) +\pderiv{x_k} \left( \rho v_k \right)  = 0
+ \end{align}
+\subsubsection{Cylindrical}
+In cylindrical $(r,\phi,z)$, the only non-unity scale factors are $h_\phi = ds_r = ds_z = dv = r$
+\begin{align}
+r \ppderiv{(\rho v_r)}{t} &+ \pderiv{r} \left( r \rho v_r^2 + r P \right)  + \pderiv{\phi} \left(  \rho v_r v_\phi \right) + \pderiv{z} \left(r  \rho v_r v_z \right)  - \rho v_\phi^2 - P = 0 \\
+r \ppderiv{(\rho v_\phi)}{t} &+ \frac{1}{r} \pderiv{r} \left( r^2 \rho v_r v_\phi \right) + \pderiv{\phi} \left(  \rho v_\phi^2 + P \right) + \frac{1}{r} \pderiv{z} \left(r^2 \rho v_\phi v_z \right)  = 0 \\
+r \ppderiv{(\rho v_z)}{t} &+ \pderiv{r} \left( r \rho v_r v_z \right) + \pderiv{\phi} \left( \rho v_\phi v_z \right) + \pderiv{z} \left( r \rho v_z^2 + r P \right) = 0 \\
+r \ppderiv{\rho}{t} &+ \pderiv{r} \left( r \rho v_r \right) + \pderiv{\phi} \left(\rho v_\phi \right) + \pderiv{z} \left(r  \rho v_z \right)  
+\end{align}
+\subsubsection{Spherical}
+In spherical $(r,\theta,\phi)$, the non-unity scale factors are, $h_\phi =r \sin \theta, h_\theta = r, ds_r =dv= r^2 \sin \theta, ds_\phi = r,$ and $ds_\theta = r \sin\theta$
+\begin{align}
+r^2 \sin \theta \ppderiv{(\rho v_r)}{t} &+ \pderiv{r} \left( r^2 \sin \theta (\rho v_r^2 + P) \right) + \pderiv{\theta} \left( r \sin \theta \rho v_r v_\theta \right) + \pderiv{\phi} \left( r \rho v_r v_\phi \right) \nonumber \\
+&- r \rho v_\theta^2 - r \sin \theta \rho v_\phi^2  - 2 P r \sin \theta = 0 \\
+r^2 \sin \theta \ppderiv{(\rho v_\theta)}{t} &+ \pderiv{r} \left( r^3 \sin \theta \rho v_r v_\theta \right) + \pderiv{\theta} \left( r \sin \theta ( \rho v_\theta^2 + P) \right) + \frac{1}{r} \pderiv{\phi} \left( r^2 \rho v_\phi v_\theta \right) \nonumber \\ 
+&- r \cos \theta \rho v_\phi^2 - P r \cos{\theta} = 0 \\
+r^2 \sin \theta \ppderiv{(\rho v_\phi)}{t} &+ \frac{1}{r \sin \theta} \pderiv{r} \left( r^3 \sin^2 \theta \rho v_r v_\phi \right) + \frac{1}{r \sin \theta} \pderiv{\theta} \left( r^2 \sin^2 \theta \rho v_\theta v_\phi \right) + \pderiv{\phi} \left( r \rho v_\phi^2 + r P \right) = 0 \\
+r^2 \sin \theta \ppderiv{\rho}{t} &+ \pderiv{r} \left( r^2 \sin \theta \rho v_r \right) + \pderiv{\phi} \left(r \rho v_\phi \right) + \pderiv{\theta} \left(r \sin \theta  \rho v_\theta \right)   = 0
+\end{align}
+
+
+
+
+
+
+
+\section{CTU}
 
 \end{document}
