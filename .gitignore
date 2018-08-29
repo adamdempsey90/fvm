@@ -7,3 +7,7 @@
 *.aux
 *.*latexmk
 *.fls
+*.h5
+run
+*.out
+*.dvi
