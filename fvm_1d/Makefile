@@ -1,10 +1,10 @@
-EXECUTABLE=run
-SOURCES=metric.c prob.c algogas.c output.c fvm.c
+EXECUTABLE=fvm1d
+SOURCES=prob.c algogas.c output.c fvm.c reconstruct.c riemann.c update.c read_pars.c exact.c hllc.c anrs.c plm.c
 HEADER=defs.h structs.h prototypes.h
 
 
 
-CFLAGS=-c -fopenmp -Wall -O3 -g
+CFLAGS=-c -Wall -O3 -g
 
 HDF5LIB=-lhdf5
 MATHLIB=-lm
