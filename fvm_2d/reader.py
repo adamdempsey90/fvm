@@ -48,17 +48,20 @@ class Sim2D():
     def plot(self,val='rho',func = None,norm=None, fig=None,ax=None,ylbl='',
             cmap='viridis',**kargs):
         if ax is None:
-            fig,ax=plt.subplots(figsize=(6,6))
+            fig,ax=plt.subplots(figsize=(8,8))
         if func is not None:
             q = func(self)
         else:
             q = getattr(self,val)
         if norm is None:
             norm = colors.Normalize()
-        ax.imshow(q,origin='lower',extent=self.extent,norm=norm,cmap=cmap,**kargs)
-        _create_colorbar(ax,norm,cmap=cmap)
+        img = ax.imshow(q,origin='lower',extent=self.extent,norm=norm,cmap=cmap,**kargs)
+        cb = _create_colorbar(ax,norm,cmap=cmap)
         ax.minorticks_on()
         ax.set_aspect('equal')
+        ax.tick_params(labelsize=20)
+        ax.text(.05,.05,'$t={:.2f}$'.format(self.time),transform=ax.transAxes,fontsize=20)
+        return fig,ax,cb,img
 
     def contour(self,val='rho',func = None,norm=colors.Normalize(), fig=None,ax=None,ylbl='',**kargs):
         if ax is None:
@@ -67,10 +70,10 @@ class Sim2D():
             q = func(self)
         else:
             q = getattr(self,val)
-        cont = ax.contour(q.T,origin='lower',extent=self.extent,norm=norm,**kargs)
-        _create_colorbar(ax,norm)
+        cont = ax.contour(q,origin='lower',extent=self.extent,norm=norm,**kargs)
+        cb = _create_colorbar(ax,norm)
         ax.minorticks_on()
-        return fig,ax,cont
+        return fig,ax,cb,cont
     def sum(self,fig=None,axes=None,**kargS):
         if axes is None:
             fig,axes = plt.subplots(2,2,figsize=(8,8))
@@ -102,22 +105,32 @@ def _create_colorbar(ax,norm,cax=None,log=False,cmap='viridis',**kargs):
     cb.ax.xaxis.set_label_position('top')
     cb.ax.tick_params(labelsize=labelsize)
 
-    return
+    return cb
 
+class Animation():
+    def __init__(self,base='kh_',**kargs):
+        self.base = base
+        self.kargs = kargs
+        self.fig,self.ax,self.cb,self.img = Sim2D(0,base=base).plot(**kargs)
+    def update(self,i):
+        fld = Sim2D(i,base=self.base)
+        try:
+            val = self.kargs['val']
+        except KeyError:
+            val = 'rho'
+            kargs['val'] = 'rho'
+        d =getattr(fld,val)
+        self.cb.set_clim([d.min(),d.max()])
+        self.cb.draw_all()
+        self.img.set_data(getattr(fld,val))
+        self.ax.texts[0].remove()
+        self.ax.text(.05,.05,'$t={:.2f}$'.format(fld.time),transform=self.ax.transAxes,fontsize=20)
+        
+    def animate(self,irange,fname='mov',frames=None):
+        import matplotlib.animation as animation
+        frames = len(irange)
+        anim = animation.FuncAnimation(self.fig, self.update, frames=frames, repeat=False)
+        anim.save('{}.mp4'.format(fname), writer=animation.FFMpegWriter())
+        
 
-def animate_contour(irange,**kargs):
-    import matplotlib.animation as animation
-    nt = len(irange)
-    fld = Sim2D(irange[0],base='imp_')
-    fig,ax,cont = fld.contour(val='rho',**kargs)
-
-
-    def update(i):
-        for c in cont.collections:
-            c.remove()
-        fld = Sim2D(i,base='imp_')
-        fig,ax,cont =fld.contour(val='rho',fig=fig,ax=ax,**kargs)
-        return cont
-
-    anim = animation.FuncAnimation(fig, update, frames=nt, repeat=False)
-    anim.save('implosion.mp4', writer=animation.FFMpegWriter())
+ 
