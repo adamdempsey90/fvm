@@ -272,7 +272,7 @@ void exact_flux(const real *UL, const real *UR, real *F,real g, real g1, int nf)
     if (use_left) {
         F[2] = ds*us*uL2 ;
         F[3] = ds*us*uL3 ;
-        F[4] = us*( ps/g1 + .5*ds*(us*us + uL2*uL2 + uL2*uL2) + ps);
+        F[4] = us*( ps/g1 + .5*ds*(us*us + uL2*uL2 + uL3*uL3) + ps);
         for(n=5;n<nf;n++) {
             F[n] = ds*us*UL[n]/rhoL;
         }

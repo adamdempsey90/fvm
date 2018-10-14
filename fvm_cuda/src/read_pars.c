@@ -1,7 +1,7 @@
 #include "defs.h"
 void read_pars(Parameters *params, int arc, char *argv[]) {
-    params->nx1 = 400;
-    params->nx2 = 400;
+    params->nx1 = 1024;
+    params->nx2 = 1024;
     params->gamma = 1.4;
     params->cfl = .2;
 
@@ -14,13 +14,13 @@ void read_pars(Parameters *params, int arc, char *argv[]) {
     params->gamma_1 = params->gamma-1.;
     params->gamma_c = params->gamma * params->gamma_1;
 
-    params->tend = 5.;
-    params->Nout = 50;
+    params->tend = .05;
+    params->Nout = 1;
     params->dtout = (params->tend)/(float)params->Nout;
 
     params->one_step = FALSE;
 
-    strcpy(params->outputname ,"out/kh");
+    strcpy(params->outputname ,"out/test");
     return;
 
 }

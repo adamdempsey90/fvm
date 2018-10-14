@@ -6,11 +6,11 @@ HEADER=defs.h structs.h prototypes.h
 
 CFLAGS=-c -Wall -O3 -g
 
-HDF5LIB=-lhdf5
+HDF5LIB=-lhdf5 -lgomp
 MATHLIB=-lm
 
-INCLIB=
-LDLIB=
+INCLIB=-I/usr/lib/x86_64-linux-gnu/hdf5/serial/include/
+LDLIB=-L/usr/lib/x86_64-linux-gnu/hdf5/serial/
 
 
 BIN=bin/

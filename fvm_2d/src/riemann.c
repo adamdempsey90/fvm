@@ -33,11 +33,16 @@ void riemann_fluxes(const real *UL, const real *UR, real *flux, int dir1,int nx[
         exit(1);
     }
 
+	real *UL_cell, *UR_cell, *F;
+#pragma omp threadprivate(UL_cell,UR_cell,F)
+#pragma omp parallel num_threads(nth)
+{
+    UL_cell = (real *)malloc(sizeof(real)*nf);
+    UR_cell = (real *)malloc(sizeof(real)*nf);
+    F = (real *)malloc(sizeof(real)*nf);
+}
 
-    real *UL_cell = (real *)malloc(sizeof(real)*nf);
-    real *UR_cell = (real *)malloc(sizeof(real)*nf);
-    real *F = (real *)malloc(sizeof(real)*nf);
-
+#pragma omp parallel for num_threads(nth) private(indx,indxm2,indxp2,indxp1m2,dtdx2)           
     for(j=jl;j<ju;j++) {
         for(i=il;i<iu;i++) {
             indx = INDEX(i,j); 
@@ -73,8 +78,10 @@ void riemann_fluxes(const real *UL, const real *UR, real *flux, int dir1,int nx[
     }
     
 
+#pragma omp parallel num_threads(nth)
+{
     free(UL_cell);free(UR_cell);free(F);
-
+}
     return;
 
 }

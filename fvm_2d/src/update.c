@@ -26,6 +26,7 @@ void update_cons(GridCons *grid, FluxCons *fluxes,Parameters *params, real dt) {
     real *F_2 = fluxes->Fstar_2;
     real dU1;
     int indxm1, indxm2;
+#pragma omp parallel for private(indx,indxm1,indxm2,dtdx1,dtdx2);
     for(n=0;n<nf;n++) {
         for(j=0;j<nx2;j++) {
             for(i=0;i<nx1;i++) {
@@ -41,12 +42,10 @@ void update_cons(GridCons *grid, FluxCons *fluxes,Parameters *params, real dt) {
     }
     /* Sync internal energy */
     real ke;
+#pragma omp parallel for private(indx);
     for(j=0;j<nx2;j++) {
         for(i=0;i<nx1;i++) {
             indx = INDEX(i,j);
-            ke = .5*cons[indx]*(pow(cons[indx+ntot],2) + pow(cons[indx+2*ntot],2) 
-                    + pow(cons[indx + 3*ntot],2));
-            
             intenergy[indx] = cons[indx+4*ntot] - .5*(
                     cons[indx + ntot]*cons[indx + ntot] +
                     cons[indx + 2*ntot]*cons[indx + 2*ntot] +
@@ -89,6 +88,7 @@ void transverse_update(GridCons *grid, FluxCons *fluxes,Parameters *params, real
     int indxm1, indxm2;
     int indxp1,indxp2, indxp1m2,indxp2m1;
     /* X1 direction */
+#pragma omp parallel for private(indx,indxm2,indxp2,indxp1m2,dtdx2);           
     for(n=0;n<nf;n++) {
         for(j=-1;j<nx2+1;j++) {
             for(i=-1;i<nx1;i++) {
@@ -104,6 +104,7 @@ void transverse_update(GridCons *grid, FluxCons *fluxes,Parameters *params, real
         }
     }
     /* X2 direction */
+#pragma omp parallel for private(indx,indxm1,indxp1,indxp2m1,dtdx1);           
     for(n=0;n<nf;n++) {
         for(j=-1;j<nx2;j++) {
             for(i=-1;i<nx1+1;i++) {
