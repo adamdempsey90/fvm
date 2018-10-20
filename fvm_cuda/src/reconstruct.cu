@@ -65,7 +65,7 @@ __global__ void plm(real *cons, real *UL, real *UR, real *dx,
 #ifdef PCM
             for(n=0;n<nf;n++) {
                 UL[indx + n*ntot] = cons[indx + n*ntot];
-                UR[indx + n*ntot] = cons[indxp + n*ntot];
+                UR[indxm + n*ntot] = cons[indx + n*ntot];
             }
 
 #endif

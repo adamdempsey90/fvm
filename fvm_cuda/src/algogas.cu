@@ -155,6 +155,22 @@ void algogas_single(real dt_max,
 
 #ifdef CTU
     if ((nx1 > 1)&&(nx2 > 1)) {
+        source_transverse_update<<<blocks,threads>>>(d_UL_1,
+                d_UL_2,
+                d_UR_1,
+                d_UR_2,
+                d_F_1 ,
+                d_F_2 ,
+                d_dx1,
+                d_dx2,
+                dt,
+                nx1,
+                nx2,
+                size_x1,
+                ntot,
+                offset,
+                nf);
+        cudaCheckError();
         transverse_update<<<blocks,threads>>>(d_UL_1,
                 d_UL_2,
                 d_UR_1,
@@ -198,6 +214,38 @@ void algogas_single(real dt_max,
         cudaCheckError();
     }
 #endif 
+#ifdef POTENTIAL
+    compute_dhalf<<<blocks,threads>>>(d_cons,
+            d_dhalf,
+            d_F_1,
+            d_F_2,
+            d_dx1,
+            d_dx2,
+            dt,
+            nx1,
+            nx2,
+            size_x1,
+            ntot,
+            offset,
+            nf);
+    update_source<<<blocks,threads>>>(d_cons,
+            d_intenergy,
+            d_dhalf,
+            d_F_1,
+            d_F_2,
+            d_dx1,
+            d_dx2,
+            d_x1,
+            d_x2,
+            nx1,
+            nx2,
+            size_x1,
+            nf,
+            ntot,
+            offset,g1,dt);
+        cudaCheckError();
+    
+#endif
     /* Final update */
     update_cons<<<blocks,threads>>>(d_cons,
             d_intenergy,

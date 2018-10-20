@@ -1,5 +1,5 @@
 \documentclass{article}
-\usepackage{amsmath}
+\usepackage{amsmath,graphicx}
 \usepackage[margin=1in]{geometry}
 \newcommand{\pderiv}[1]{\frac{\partial }{\partial #1}}
 \newcommand{\ppderiv}[2]{\frac{\partial #1}{\partial #2}}
@@ -262,11 +262,193 @@ r^2 \sin \theta \ppderiv{\rho}{t} &+ \pderiv{r} \left( r^2 \sin \theta \rho v_r 
 \end{align}
 
 
+\section{Non-orthogonal}
+In a non-orthogonal coordinate system with metric $g_{ij}$, the fluid equations are,
+\begin{align}
+\ppderiv{\rho}{t} + \del_i \left( \rho V^i \right) = 0 \\
+\pderiv{t} (\rho V^j)  + \del_i \left(\rho V^i V^j  \right) = -\del_i P
+\end{align}
 
+To mirror what we did for the orthogonal coordinate systems we can write this in a mixed basis,
+\begin{align}
+\pderiv{t} (\sqrt{g} \rho ) + \pderiv{x^i} \left( \sqrt{g} \rho V^i\right) = 0 \\
+\pderiv{t} ( \sqrt{g} \rho V_j)  + \pderiv{x^i} \left( \sqrt{g} T_j^i  \right) = -\sqrt{g} \pderiv{x^i} P + \sqrt{g} T_k^j \Gamma_{ij}^k
+\end{align}
+where $\sqrt{g} = {\rm det}(g)$,  $T^{ij} = \rho V^i V^j$, and 
+\begin{equation}
+	T_j^i = g_{jk} T^{ki} = \rho g_{jk} V^k V^i = \rho V_j V^i = \rho V_j g^{ik} V_k
+\end{equation}
+Note that $V_i = g_{ij} V^j = v_i /h^i $ where $v_i$ is the physical velocity so that $T_j^i$ is,
+\begin{equation}
+T_j^i = \frac{\rho}{h^j h_k} v_j g^{ik} v_k 
+\end{equation}
+\begin{align}
+\pderiv{t} (\sqrt{g} \rho ) &+ \pderiv{x^i} \left( \frac{\sqrt{g}}{h^k} \rho g^{ik} v_k \right) = 0 \\
+\pderiv{t} ( \frac{\sqrt{g}}{h^j} \rho v_j)  &+ \pderiv{x^i} \left( \frac{\sqrt{g}}{h^j h_k} \rho v_j g^{ik} v_k \right) = - \sqrt{g}\pderiv{x^i} P + \frac{\sqrt{g}}{h^k h_j} \rho v_k  g^{j \ell} v_\ell \Gamma_{ij}^k 
+\end{align}
 
 
 
 
 \section{CTU}
+\begin{enumerate}
+\item For each direction in the problem
+\begin{enumerate}
+    \item Solve for left/right interface states, $U_L$ and $U_R$ for each cell
+    \begin{enumerate}
+    	\item This entails limiting the left and right slopes and evolving $U_{L,R}$ for $\Delta t/2$ using the fluxes, $F(U_{L,R})$. This can be PCM, PLM, PPM, WENO, etc., for first order, second order, third order, and higher order, respectively.
+    \end{enumerate}
+    \item Compute the fluxes at the interfaces by solving the Riemann problem $F(U_L,U_R)$.
+\end{enumerate}
+\item Using the fluxes in each direction, update $U_{L,R}$ in each direction by using the fluxes in the \emph{transverse} directions to evolve $U_{L,R}$ for $\Delta t/2$. 
+
+\item Recompute the fluxes in each direction by solving the Riemann problem at the interfaces with the corrected $U_{L,R}$. 
+\item Update the conserved variables in each cell using the corrected interface fluxes in each direction for a full $\Delta t$.
+\end{enumerate}
+
+\subsection{1D Timestepping algorithm} 
+Let the conserved variables be $U = \left\{\rho, \rho v_x, \rho v_y, \rho v_z, E \right\}$, and the flux be $F = \left\{ \rho v_x, \rho v_x^2 + P, \rho v_x v_y, \rho v_x v_z, v_x (E + P) \right\}$ so that in 1D,
+\begin{equation}
+	\ppderiv{U}{t} +\ppderiv{F}{x} = 0
+\end{equation}
+Let $U_i^n$ represent the volume averaged conserved variables in cell $i$ at time $t_n$. 
+To go from $U_i^n$ to $U_i^{n+1}$ at time $t_{n+1} = t_n + \Delta t$ we do the following,
+\begin{enumerate}
+	\item Reconstruct the values of $U_{i+1/2}$ from the gradient estimates of $U_{i}-U_{i-1}$ and $U_{i+1}-U_{i}$. This gives the quantities, $U_i^L$ and $U_i^R$ which are defined at the boundary between cell $i$ and cell $i+1$. 
+	\item Evolve $U_i^L$ and $U_i^R$ for $\Delta t/2$ by the fluxes $F(U_i^L)$ and $F(U_i^R)$,
+	\begin{align}
+		U_i^{L,n+1/2} &= U_i^{L,n} - \frac{\Delta t}{2 \Delta x} \left( F(U_i^L) -F(U_{i-1}^R \right) \\
+		U_{i-1}^{R,n+1/2} &= U_{i-1}^{R,n} - \frac{\Delta t}{2 \Delta x} \left( F(U_i^L) -F(U_{i-1}^R \right)
+	\end{align}
+	The index convention is that $U_i^{L,R}$ lie at the right interface of cell $i$, so at $i+1/2$. 
+	\item Solve for the interface flux by solving the 1D Riemann problem $F_i = F(U_i^{L,n+1/2},U_i^{R,n+1/2})$. 
+	\item Given the left and right fluxes, $F_{i-1}$ and $F_{i}$ update the volume averaged conserved variables, 
+	\begin{equation}
+		U_i^{n+1} = U_i^n - \frac{\Delta t}{\Delta x} \left(F_i - F_{i-1} \right)
+	\end{equation}
+
+\end{enumerate}
+\subsection{1D Timestepping algorithm with potential source} 
+With a time independent potential the equations of motion have a source term, 
+\begin{equation}
+	\ppderiv{U}{t} +\ppderiv{F}{x} = S
+\end{equation}
+where $S = \left\{0,-\rho \partial \Phi/ \partial x, -\rho \partial \Phi / \partial y , -\rho \partial \Phi/\partial z, -\rho v \cdot \del \Phi \right\}$
+The Reconstruct-Evolve-Solve-Update algorithm given above is essentially the same, the only difference is including the source term in the Evolve and Update steps.
+\begin{enumerate}
+	\item Reconstruct the values of $U_{i+1/2}$ from the gradient estimates of $U_{i}-U_{i-1}$ and $U_{i+1}-U_{i}$. This gives the quantities, $U_i^L$ and $U_i^R$ which are defined at the boundary between cell $i$ and cell $i+1$. 
+	\item Evolve $U_i^L$ and $U_i^R$ for $\Delta t/2$ by the fluxes $F(U_i^L)$ and $F(U_i^R)$,
+	\begin{align}
+		U_i^{L,n+1/2,*} &= U_i^{L,n} - \frac{\Delta t}{2 \Delta x} \left( F(U_i^L) -F(U_{i-1}^R \right)  \\
+		U_{i-1}^{R,n+1/2,*} &= U_{i-1}^{R,n} - \frac{\Delta t}{2 \Delta x} \left( F(U_i^L) -F(U_{i-1}^R \right) \\
+	\end{align}
+	\item Evolve these interface states for $\Delta t /2$ using the source term. For the momenta, this is
+	\begin{align}
+		U_i^{L,n+1/2} &= U_i^{L,n+1/2,*} - \frac{\Delta t}{\Delta x} \rho_i^{L,n+1/2,*} \left(\Phi_{i+1/2}-\Phi_i\right) \\
+		U_{i-1}^{R,n+1/2} &= U_{i-1}^{R,n+1/2,*}  - \frac{\Delta t}{\Delta x} \rho_{i-1}^{R,n+1/2,*}\left(\Phi_{i}-\Phi_{i-1/2}\right)
+	\end{align}
+	where $U$ for the 1D case is $\rho v_x$.
+	Note that this is equivalent to updating the primitive velocity, $v_x$. 
+	\item Solve for the interface flux by solving the 1D Riemann problem $F_i = F(U_i^{L,n+1/2},U_i^{R,n+1/2})$. 
+	\item Compute the density at $\Delta t/2$ using the fluxes, $F_i$. 
+	\begin{equation}
+		\rho_i^{n+1/2} = \rho_i^n - \frac{\Delta t}{2 \Delta x} \left(F_i^\rho - F_{i-1}^\rho \right) 
+	\end{equation}
+	where $F^\rho = \rho v_x$ is the density component of the flux. 
+	\item Given the left and right fluxes, $F_{i-1}$ and $F_{i}$, and $\rho_i^{n+1/2}$, update the volume averaged conserved variables. 
+	For the momenta,
+	\begin{equation}
+		U_i^{n+1} = U_i^n - \frac{\Delta t}{\Delta x} \left(F_i - F_{i-1} \right) - \frac{\Delta t}{\Delta x} S_i
+	\end{equation}
+	where $S_i$ is zero for the density, 
+	\begin{equation}
+		\rho_i^{n+1/2} \left( \Phi_{i+1/2}-\Phi_{i-1/2} \right)
+	\end{equation}
+	for the momenta, and 
+	\begin{equation}
+		F_i^\rho \left(\Phi_{i+1/2}-\Phi_i\right) + F_{i-1}^\rho \left(\Phi_{i}-\Phi_{i-1/2}\right)
+	\end{equation}
+	for the energy. 
+
+
+\end{enumerate}
+
+
+\subsection{2D Timestepping algorithm } 
+In 2D we have an additional flux in the $y$ direction, $G= \left\{ \rho v_y, \rho v_x v_y, \rho v_y^2 + P, \rho v_y v_z, v_y (E + P) \right\}$
+\begin{equation}
+	\ppderiv{U}{t} +\ppderiv{F}{x}  + \ppderiv{G}{y} = 0
+\end{equation}
+Let $U_{i,j}^n$ represent the volume averaged conserved variables in cell $(i,j)$ at time $t_n$.
+The first steps are the same as the 1D algorithm, 
+\begin{enumerate}
+	\item Reconstruct-Evolve-Solve in $x$ direction to obtain $U_{i,j}^{L,R,n}$ and $F_{i,j}^n$.
+	\item Reconstruct-Evolve-Solve in $y$ direction to obtain $U_{i,j}^{L,R,n}$ and $G_{i,j}^n$.  
+	\item Evolve the left and right states using the \emph{transverse} fluxes, 
+	\begin{align}
+		U_{i+1/2,j}^{L,n+1/2} &= U_{i+1/2,j}^{L,n} - \frac{\Delta t}{2 \Delta y} \left( G_{i,j}^n - G_{i,j-1}^n \right) \\
+		U_{i+1/2,j}^{R,n+1/2} &= U_{i+1/2,j}^{R,n} - \frac{\Delta t}{2 \Delta y} \left( G_{i+1,j}^n - G_{i+1,j-1}^n \right) \\
+		U_{i,j+1/2}^{L,n+1/2} &= U_{i,j+1/2}^{L,n} - \frac{\Delta t}{2 \Delta x} \left( F_{i,j}^n - F_{i-1,j}^n \right) \\
+		U_{i,j+1/2}^{R,n+1/2} &= U_{i,j+1/2}^{R,n} - \frac{\Delta t}{2 \Delta x} \left( F_{i,j+1}^n - F_{i-1,j+1}^n \right)
+	\end{align}
+	\item Solve the Riemann problem for the corrected interface fluxes, $F_{i,j}^{n+1/2} = F(U_{i+1/2,j}^{L,n+1/2}, U_{i+1/2,j}^{R,n+1/2})$ and $G_{i,j}^{n+1/2} = F(U_{i,j+1/2}^{L,n+1/2},U_{i,j+1/2}^{R,n+1/2})$. 
+
+	\item Given the interface fluxes, update the volume averaged conserved variables, 
+	\begin{equation}
+		U_i^{n+1} = U_i^n - \frac{\Delta t}{\Delta x} \left(F_{i,j}^{n+1/2} - F_{i-1,j}^{n+1/2} \right) - \frac{\Delta t}{\Delta y} \left(G_{i,j}^{n+1/2} - G_{i,j-1}^{n+1/2} \right)
+	\end{equation}
+\begin{figure}
+\centering
+\includegraphics[width=.8\textwidth]{2d_transverse}
+\end{figure}
+\end{enumerate}
+
+\subsection{2D Timestepping algorithm with Potential} 
+Adding the source term changes the equations of motion to,
+\begin{equation}
+	\ppderiv{U}{t} +\ppderiv{F}{x}  + \ppderiv{G}{y} = S
+\end{equation}
+with  $S = \left\{0,-\rho \partial \Phi/ \partial x, -\rho \partial \Phi / \partial y , -\rho \partial \Phi/\partial z, -\rho v \cdot \del \Phi \right\}$.
+The full algorithm is,
+\begin{enumerate}
+	\item Reconstruct-Evolve-Solve in $x$ direction to obtain $U_{i,j}^{L,R,n}$ and $F_{i,j}^n$ (see 1D with source above).
+	\item Reconstruct-Evolve-Solve in $y$ direction to obtain $U_{i,j}^{L,R,n}$ and $G_{i,j}^n$.  
+	\item Evolve the left and right states using the \emph{transverse} fluxes, 
+	\begin{align}
+		U_{i,j}^{L,n+1/2,*} &= U_{i,j}^{L,n} - \frac{\Delta t}{2 \Delta y} \left( G_{i,j}^n - G_{i,j-1}^n \right) \\
+		U_{i-1,j}^{R,n+1/2,*} &= U_{i-1,j}^{R,n} - \frac{\Delta t}{2 \Delta y} \left( G_{i+1,j}^n - G_{i+1,j-1}^n \right) \\
+		U_{i,j}^{D,n+1/2,*} &= U_{i,j}^{D,n} - \frac{\Delta t}{2 \Delta x} \left( F_{i,j}^n - F_{i-1,j}^n \right) \\
+		U_{i,j-1}^{U,n+1/2,*} &= U_{i,j-1}^{U,n} - \frac{\Delta t}{2 \Delta x} \left( F_{i,j+1}^n - F_{i-1,j+1}^n \right)
+	\end{align}
+	where $L,R,U,D$ correspond to left,right,up,down. 
+	\item Evolve the left and right states using the transverse source terms, 
+	\begin{align}
+		U_{i,j}^{L,n+1/2} &= U_{i,j}^{L,n+1/2,*} - \frac{\Delta t}{\Delta y} \rho_{i,j}^{L,n+1/2,*} \left(\Phi_{i,j+1/2}-\Phi_{i,j}\right) \\
+		U_{i-1,j}^{R,n+1/2} &= U_{i-1,j}^{R,n+1/2,*}  - \frac{\Delta t}{\Delta y} \rho_{i-1,j}^{R,n+1/2,*}\left(\Phi_{i,j}-\Phi_{i,j-1/2}\right) \\
+		U_{i,j}^{D,n+1/2} &= U_{i,j}^{D,n+1/2,*} - \frac{\Delta t}{\Delta x} \rho_{i,j}^{D,n+1/2,*} \left(\Phi_{i+1/2,j}-\Phi_{i,j}\right) \\
+		U_{i,j-1}^{U,n+1/2} &= U_{i,j-1}^{U,n+1/2,*}  - \frac{\Delta t}{\Delta x} \rho_{i,j-1}^{U,n+1/2,*}\left(\Phi_{i,j}-\Phi_{i-1/2,j}\right) \\
+	\end{align}
+	\item Solve the Riemann problem for the corrected interface fluxes, $F_{i,j}^{n+1/2} = F(U_{i,j}^{L,n+1/2}, U_{i,j}^{R,n+1/2})$ and $G_{i,j}^{n+1/2} = F(U_{i,j}^{U,n+1/2},U_{i,j}^{D,n+1/2})$. 
+	\item Calculate $\rho_i^{n+1/2}$ with the fluxes,
+	\begin{equation}
+		\rho_i^{n+1/2} = \rho_i^n - \frac{\Delta t}{2 \Delta x} \left(F_{i,j}^{\rho,n+1/2} - F_{i-1,j}^{\rho,n+1/2} \right)  - \frac{\Delta t}{2 \Delta y} \left(G_{i,j}^{\rho,n+1/2} - G_{i,j-1}^{\rho,n+1/2} \right) 
+	\end{equation}
+
+	\item Given the interface fluxes and $\rho_i^{n+1/2}$ update the volume averaged conserved variables, 
+	\begin{equation}
+		U_i^{n+1} = U_i^n - \frac{\Delta t}{\Delta x} \left(F_{i,j}^{n+1/2} - F_{i-1,j}^{n+1/2} \right) - \frac{\Delta t}{\Delta y} \left(G_{i,j}^{n+1/2} - G_{i,j-1}^{n+1/2} \right) - \frac{\Delta t}{\Delta x} S_{i,x} - \frac{\Delta t}{\Delta y} S_{i,j,y}
+	\end{equation}
+	where $S_i$ is zero for the density, 
+	\begin{equation}
+		S_{i,j,x} = \rho_i^{n+1/2} \left( \Phi_{i+1/2,j}-\Phi_{i-1/2,j} \right) \qquad S_{i,j,y} = \rho_i^{n+1/2} \left( \Phi_{i,j+1/2}-\Phi_{i,j-1/2} \right)
+	\end{equation}
+	for the momenta, and
+	\begin{align}
+		S_{i,j,x} &= F_{i,j}^\rho \left(\Phi_{i+1/2,j}-\Phi_{i,j}\right) + F_{i-1,j}^\rho \left(\Phi_{i,j}-\Phi_{i-1/2,j}\right) \\
+		S_{i,j,y} &= G_{i,j}^\rho \left(\Phi_{i,j+1/2}-\Phi_{i,j}\right) + G_{i,j-1}^\rho \left(\Phi_{i,j}-\Phi_{i,j-1/2}\right)
+	\end{align}
+	for the energy.
+
+\end{enumerate}
 
 \end{document}
