@@ -25,7 +25,7 @@
 #define PLM
 //#define MINMOD
 
-
+//#define POTENTIAL
 
 #define EXACT
 #define EXACT_TOL 1e-6

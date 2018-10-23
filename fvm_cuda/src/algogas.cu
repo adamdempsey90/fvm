@@ -13,6 +13,7 @@ void algogas_single(real dt_max,
         real *d_UL_2,
         real *d_UR_2,
         real *d_F_2,
+        real *d_dhalf,
         real *d_dx1,
         real *d_dx2,
         real *d_x1,
@@ -155,7 +156,7 @@ void algogas_single(real dt_max,
 
 #ifdef CTU
     if ((nx1 > 1)&&(nx2 > 1)) {
-        source_transverse_update<<<blocks,threads>>>(d_UL_1,
+        transverse_update<<<blocks,threads>>>(d_UL_1,
                 d_UL_2,
                 d_UR_1,
                 d_UR_2,
@@ -171,7 +172,8 @@ void algogas_single(real dt_max,
                 offset,
                 nf);
         cudaCheckError();
-        transverse_update<<<blocks,threads>>>(d_UL_1,
+        source_transverse_update<<<blocks,threads>>>(d_cons,
+                d_UL_1,
                 d_UL_2,
                 d_UR_1,
                 d_UR_2,
@@ -179,6 +181,8 @@ void algogas_single(real dt_max,
                 d_F_2 ,
                 d_dx1,
                 d_dx2,
+                d_x1,
+                d_x2,
                 dt,
                 nx1,
                 nx2,
@@ -229,7 +233,6 @@ void algogas_single(real dt_max,
             offset,
             nf);
     update_source<<<blocks,threads>>>(d_cons,
-            d_intenergy,
             d_dhalf,
             d_F_1,
             d_F_2,
@@ -242,7 +245,7 @@ void algogas_single(real dt_max,
             size_x1,
             nf,
             ntot,
-            offset,g1,dt);
+            offset,dt);
         cudaCheckError();
     
 #endif
@@ -285,6 +288,7 @@ void algogas_dt(real dtout, GridCons *grid, FluxCons *fluxes, Parameters *params
     real *d_dx1, *d_dx2;
     real *d_x1, *d_x2;
     real *dt_arr;
+    real *d_dhalf;
 
     cudaMalloc((void**)&d_dx1,sizeof(real)*size_x1);
     cudaCheckError();
@@ -352,6 +356,9 @@ void algogas_dt(real dtout, GridCons *grid, FluxCons *fluxes, Parameters *params
     cudaMalloc((void**)&d_F_2,sizeof(real)*ntot*nf);
     cudaCheckError();
 
+    cudaMalloc((void**)&d_dhalf,sizeof(real)*ntot);
+    cudaCheckError();
+
     int threads = 256;
     int blocks = min((ntot+threads-1)/threads,1024);
 
@@ -370,6 +377,7 @@ void algogas_dt(real dtout, GridCons *grid, FluxCons *fluxes, Parameters *params
             d_UL_2,
             d_UR_2,
             d_F_2,
+            d_dhalf,
             &d_dx1[NGHX1],
             &d_dx2[NGHX2],
             d_x1 + NGHX1,
@@ -400,6 +408,7 @@ void algogas_dt(real dtout, GridCons *grid, FluxCons *fluxes, Parameters *params
     cudaFree(d_x1);
     cudaFree(d_x2);
     cudaFree(dt_arr);
+    cudaFree(d_dhalf);
 
     return;
 }
@@ -419,6 +428,7 @@ void algogas_onestep(real dtout, GridCons *grid, FluxCons *fluxes, Parameters *p
     real *d_dx1, *d_dx2;
     real *d_x1, *d_x2;
     real *dt_arr;
+    real *d_dhalf;
 
     cudaMalloc((void**)&d_dx1,sizeof(real)*size_x1);
     cudaCheckError();
@@ -486,6 +496,9 @@ void algogas_onestep(real dtout, GridCons *grid, FluxCons *fluxes, Parameters *p
     cudaMalloc((void**)&d_F_2,sizeof(real)*ntot*nf);
     cudaCheckError();
 
+    cudaMalloc((void**)&d_dhalf,sizeof(real)*ntot);
+    cudaCheckError();
+
     int threads = 256;
     int blocks = min((ntot+threads-1)/threads,1024);
     printf("Threads %d, Blocks %d\n",threads,blocks);
@@ -503,6 +516,7 @@ void algogas_onestep(real dtout, GridCons *grid, FluxCons *fluxes, Parameters *p
         d_UL_2,
         d_UR_2,
         d_F_2,
+        d_dhalf,
         d_dx1 + NGHX1,
         d_dx2 + NGHX2,
         d_x1 + NGHX1,
@@ -533,6 +547,7 @@ void algogas_onestep(real dtout, GridCons *grid, FluxCons *fluxes, Parameters *p
     cudaFree(d_x1);
     cudaFree(d_x2);
     cudaFree(dt_arr);
+    cudaFree(d_dhalf);
     return;
 }
 //}

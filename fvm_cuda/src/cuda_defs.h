@@ -1,7 +1,6 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-#define POTENTIAL 
 
 #define cudaCheckError() {                                          \
  cudaError_t cer=cudaGetLastError();                                 \
@@ -17,10 +16,17 @@
 
 __global__ void compute_dhalf(real *cons, real *dhalf, real *F_1, real *F_2,
         real *dx1, real *dx2, real dt, int nx1, int nx2, int size_x1, int ntot, int offset, int nf);
+
+__global__ void update_source(real *cons, real *dhalf, real *F1, real *F2, real *dx1, real *dx2, real *x1, real *x2,
+        int nx1, int nx2, int size_x1, 
+        int nf,int ntot, int offset, real dt);
+__global__ void source_terms(real *UL, real *UR, real *dx, real *x1, real *x2,
+        int dir1,int nx1, int nx2, int size_x1, 
+        int nf,int ntot, int offset, real g1, real dt);
 __global__ void update_cons(real *cons, real *intenergy, real *F_1, real *F_2,real *dx1, real *dx2, real dt, int nx, int ny, int size_x1, int ntot,int offset, int nf);
-__global__ void source_transverse_update(real *UL_1, real *UL_2,
+__global__ void source_transverse_update(real *cons, real *UL_1, real *UL_2,
         real *UR_1, real *UR_2, 
-        real *F_1, real *F_2, real *dx1, real *dx2, real dt, int nx1, int nx2, int size_x1, int ntot, int offset, int nf);
+        real *F_1, real *F_2, real *dx1, real *dx2,real *x1, real *x2, real dt, int nx1, int nx2, int size_x1, int ntot, int offset, int nf);
 __global__ void riemann_fluxes(real *UL, real *UR, real *F, 
         int dir1,int nx1, int nx2, int size_x1, 
         int nf,int ntot, int offset, real g);

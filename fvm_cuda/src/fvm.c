@@ -1,7 +1,6 @@
 #include "defs.h"
 #include "cuda_defs.h"
 
-#define PROF
 
 int main(int argc, char *argv[]) {
     int Nout, step;
@@ -21,9 +20,12 @@ int main(int argc, char *argv[]) {
     printf("Init gas\n");
     init_gas(grid,params);
 
+    printf("Outputting results to %s\n",params->outputname);
 
-    size_t totbytes = sizeof(real)*(7*(grid->ntot)*(grid->nf)
-            + grid->ntot 
+
+    size_t totbytes = sizeof(real)*(7*(grid->ntot)*(grid->nf) // cons, flux, UL/R
+            + grid->ntot // intenergy 
+            + grid->ntot // d_half
             + grid->size_x[0] 
             + grid->size_x[1]
             + 1024);

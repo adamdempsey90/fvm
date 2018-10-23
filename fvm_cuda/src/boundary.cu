@@ -56,6 +56,15 @@ __device__ void reflecting_boundary_x2_outer(int indxg, int i, int j, real *cons
     /* Reflecting outer boundary.
      * This sets  dU/dx = 0 and u2 = 0 
      */
+    /* n -> n-1
+     * n+1 -> n-2 
+     * n+2-> n-3
+     *------------
+     *    o | x
+     *   o  |  x
+     *  o   |   x
+     *---------------
+     */
     int n;
     int indx = GINDEX(i,nx2 + -(j-nx2)-1);
 

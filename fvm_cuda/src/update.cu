@@ -13,7 +13,7 @@ __global__ void compute_dhalf(real *cons, real *dhalf, real *F_1, real *F_2,
         j = indx/size_x1;
         i = indx -size_x1*j - NGHX1;
         j -= NGHX2;
-        if ((i>=0)&&(i<nx1)&&(j>=0)&&(j<nx2)) {
+        if ((i>=-2)&&(i<nx1+2)&&(j>=-2)&&(j<nx2+2)) {
             indxm1 = GINDEX(i-1,j);
             indxm2 = GINDEX(i,j-1);
             dtdx1 = .5*dt/dx1[i];
@@ -63,6 +63,7 @@ __global__ void transverse_update(real *UL_1, real *UL_2,
     int i,j,n;
     int indx;
     int indxm1,indxp1,indxp2m1, indxp1m2, indxm2, indxp2;
+    int indxm1m2,indxm2m1;
     real dtdx2,dtdx1;
 
     for(indx = blockIdx.x*blockDim.x + threadIdx.x; indx<ntot;indx+=blockDim.x*gridDim.x) {
@@ -70,28 +71,28 @@ __global__ void transverse_update(real *UL_1, real *UL_2,
         i = indx -size_x1*j - NGHX1;
         j -= NGHX2;
         /* X1 - direction */
-        if ((i>=-1)&&(i<nx1)&&(j>=-1)&&(j<nx2+1)) {
+        if ((i>=-2)&&(i<nx1+3)&&(j>=-2)&&(j<nx2+3)) {
             indxm1 = GINDEX(i-1,j);
             indxm2 = GINDEX(i,j-1);
             indxp2 = GINDEX(i+1,j); // i,j+1
-            indxp1m2 = GINDEX(i+1,j-1);
+            indxm1m2 = GINDEX(i-1,j-1);
             dtdx2 = .5*dt/dx2[j];
             for(n=0;n<nf;n++) {
                 UL_1[indx + n*ntot] += dtdx2*(F_2[indxm2 + n*ntot]-F_2[indx + n*ntot]);
-                UR_1[indxm1 + n*ntot] += dtdx2*(F_2[indxp1m2 + n*ntot]-F_2[indxp2 + n*ntot]);
+                UR_1[indxm1 + n*ntot] += dtdx2*(F_2[indxm2 + n*ntot]-F_2[indx + n*ntot]);
 
             }
         }
         /* X2 - direction */
-        if ((i>=-1)&&(i<nx1+1)&&(j>=-1)&&(j<nx2)) {
+        if ((i>=-2)&&(i<nx1+3)&&(j>=-2)&&(j<nx2+3)) {
             indxm1 = GINDEX(i-1,j);
             indxp1 = GINDEX(i,j+1); // i+1,j
-            indxp2m1 = GINDEX(i-1,j+1);
+            indxm2m1 = GINDEX(i-1,j-1);
             indxm2 = GINDEX(i,j-1);
             dtdx1 = .5*dt/dx1[i];
             for(n=0;n<nf;n++) {
                 UL_2[indx + n*ntot] += dtdx1*(F_1[indxm1 + n*ntot]-F_1[indx + n*ntot]);
-                UR_2[indxm2 + n*ntot] += dtdx1*(F_1[indxp2m1 + n*ntot]-F_1[indxp1 + n*ntot]);
+                UR_2[indxm2 + n*ntot] += dtdx1*(F_1[indxm1 + n*ntot]-F_1[indx + n*ntot]);
 
             }
         }

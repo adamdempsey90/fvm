@@ -1,9 +1,65 @@
-/* Implosion */
+/* Rayleigh-Taylor */
 #include "defs.h"
 #include <time.h>
 #include "cuda_defs.h"
 
 
+const real g_param = .1;
+
+
+__device__ real gravpot(real x, real y) {
+    return .1*y;
+}
+
+__device__ void hydrostatic_lower(int indxg, int i, int j, real *cons, real *intenergy, real *x1, real *x2, int nx1, int nx2, int ntot, int nf, int size_x1, int offset, real g, real time) {
+    int n;
+    int indx = GINDEX(i,-j-1);
+
+
+//    inten = inten0 - (x2[j]-x2[0])*cons[indx0+0*ntot]*.1/(g-1);
+
+
+
+
+    cons[indxg + 0*ntot] = cons[indx + 0*ntot];
+    cons[indxg + 1*ntot] = cons[indx + 1*ntot];
+    cons[indxg + 2*ntot] = -cons[indx + 2*ntot];
+    cons[indxg + 3*ntot] = cons[indx + 3*ntot];
+    cons[indxg + 4*ntot] = cons[indx + 4*ntot];
+
+    cons[indxg + 4*ntot] -= .1*cons[indx + 0*ntot]/(g) * (x2[j] - x2[-j-1]);
+
+
+    for(n=5;n<nf;n++) {
+        cons[indxg + n*ntot] = cons[indx + n*ntot];
+    }
+
+
+    return;
+}
+__device__ void hydrostatic_upper(int indxg, int i, int j, real *cons, real *intenergy, real *x1, real *x2, int nx1, int nx2, int ntot, int nf, int size_x1, int offset, real g, real time) {
+    int n;
+    int indx = GINDEX(i,nx2+ -(j-nx2)-1);
+
+//    inten = inten0 - (x2[j]-x2[nx2-1])*cons[indx0+0*ntot]*.1/(g-1);
+
+    cons[indxg + 0*ntot] = cons[indx + 0*ntot];
+    cons[indxg + 1*ntot] = cons[indx + 1*ntot];
+    cons[indxg + 2*ntot] = -cons[indx + 2*ntot];
+    cons[indxg + 3*ntot] = cons[indx + 3*ntot];
+    cons[indxg + 4*ntot] = cons[indx + 4*ntot];
+
+    cons[indxg + 4*ntot] -= .1*cons[indx + 0*ntot]/(g) * (x2[j] - x2[nx2+-(j-nx2)-1]);
+
+
+
+    for(n=5;n<nf;n++) {
+        cons[indxg + n*ntot] = cons[indx + n*ntot];
+    }
+
+
+    return;
+}
 __global__ void boundary_kernel(real *cons, real *intenergy, real *x1, real *x2, int nx1, int nx2, int size_x1, int nf, int ntot, int offset, real g, real time) {
 
     int i,j,indxg;
@@ -19,7 +75,7 @@ __global__ void boundary_kernel(real *cons, real *intenergy, real *x1, real *x2,
         else if ((j>=-NGHX2)&&(j<0)&&(i>=-NGHX1)&&(i<nx1+NGHX1)) {
         /* Lower x2 */
 
-            periodic_boundary_x2_inner(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
+            hydrostatic_lower(indxg,i,j,cons,intenergy,x1,x2,nx1,nx2,ntot,nf,size_x1,offset,g,time);
         }
         else if ((i>=nx1)&&(i<nx1+NGHX1)&&(j>=-NGHX2)&&(j<nx2+NGHX2))  {
         /* Upper x1 */
@@ -28,7 +84,7 @@ __global__ void boundary_kernel(real *cons, real *intenergy, real *x1, real *x2,
         }
         else if ((j>=nx2)&&(j<nx2+NGHX2)&&(i>=-NGHX1)&&(i<nx1+NGHX1)) {
         /* Upper x2 */
-            periodic_boundary_x2_outer(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
+            hydrostatic_upper(indxg,i,j,cons,intenergy,x1,x2,nx1,nx2,ntot,nf,size_x1,offset,g,time);
 
 
         }
@@ -153,11 +209,37 @@ void init_gas(GridCons *grid, Parameters *params) {
             indx = INDEX(i,j); 
             //indx = i + size_x1*j;
 
-            u2 = -.5; 
-            u1 = 1.;
-            pres = 1.;
+            u2 = 0.; 
+            u1 = 0.;
+            
+            /*
+            if (xm2[j] >= .01*cos(2*M_PI*x1[i])) {
+                pres = 1./gamma - .1*2*(x2[j]- 0.0);
+                rho[indx] = 2.;
+            }
+            else {
+                pres = 1./gamma - .1*1*(x2[j]- 0.0);
+                rho[indx] = 1.;
+            }
+            */
 
-            rho[indx] = 1 + .2*sin(M_PI*(x1[i]+x2[j]));
+            if (xm2[j] == 0) {
+                u2 = 0.01*cos(2*M_PI*x1[i]);
+            }
+
+
+
+            if (xm2[j] >= 0) {
+
+                pres = 1./gamma - .1*2*(x2[j]- 0.0);
+                rho[indx] = 2.;
+            }
+            else {
+                pres = 1./gamma - .1*1*(x2[j]- 0.0);
+                rho[indx] = 1.;
+            }
+
+
 
             mx1[indx] = u1*rho[indx];
             mx2[indx] = u2*rho[indx];
@@ -178,9 +260,6 @@ void init_gas(GridCons *grid, Parameters *params) {
         }
     }
 
-    FILE *f = fopen("out/rt/ic.dat","w");
-    fwrite(&grid->cons[2*ntot-grid->offset],ntot,sizeof(real),f);
-    fclose(f);
 
     return;
 

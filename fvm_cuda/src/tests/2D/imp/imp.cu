@@ -13,22 +13,22 @@ __global__ void boundary_kernel(real *cons, real *intenergy, real *x1, real *x2,
         j -= NGHX2;
         if ((i>=-NGHX1)&&(i<0)&&(j>=-NGHX2)&&(j<nx2+NGHX2)) {
         /* Lower x1 */
-            periodic_boundary_x1_inner(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
+            reflecting_boundary_x1_inner(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
 
         }
         else if ((j>=-NGHX2)&&(j<0)&&(i>=-NGHX1)&&(i<nx1+NGHX1)) {
         /* Lower x2 */
 
-            periodic_boundary_x2_inner(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
+            reflecting_boundary_x2_inner(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
         }
         else if ((i>=nx1)&&(i<nx1+NGHX1)&&(j>=-NGHX2)&&(j<nx2+NGHX2))  {
         /* Upper x1 */
-            periodic_boundary_x1_outer(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
+            reflecting_boundary_x1_outer(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
 
         }
         else if ((j>=nx2)&&(j<nx2+NGHX2)&&(i>=-NGHX1)&&(i<nx1+NGHX1)) {
         /* Upper x2 */
-            periodic_boundary_x2_outer(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
+            reflecting_boundary_x2_outer(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
 
 
         }
@@ -153,11 +153,17 @@ void init_gas(GridCons *grid, Parameters *params) {
             indx = INDEX(i,j); 
             //indx = i + size_x1*j;
 
-            u2 = -.5; 
-            u1 = 1.;
-            pres = 1.;
-
-            rho[indx] = 1 + .2*sin(M_PI*(x1[i]+x2[j]));
+            //if ((xm1[i]>=0)&&(xm1[i+1]<=.3)&&(xm2[j+1] < .15 - xm1[i+1])) {
+            if (x2[j] <= .15 - x1[i] + 1e-8) {
+                rho[indx] = .125;
+                pres = .14;
+            }
+            else {
+                rho[indx] = 1.;
+                pres = 1.;
+            }
+            u2 = 0.; 
+            u1 = 0.;
 
             mx1[indx] = u1*rho[indx];
             mx2[indx] = u2*rho[indx];

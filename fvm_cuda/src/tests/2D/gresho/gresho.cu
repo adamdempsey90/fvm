@@ -1,4 +1,4 @@
-/* Implosion */
+/* Kelvin-Helmholtz  */
 #include "defs.h"
 #include <time.h>
 #include "cuda_defs.h"
@@ -6,29 +6,29 @@
 
 __global__ void boundary_kernel(real *cons, real *intenergy, real *x1, real *x2, int nx1, int nx2, int size_x1, int nf, int ntot, int offset, real g, real time) {
 
-    int i,j,indxg;
-    for(indxg = blockIdx.x*blockDim.x + threadIdx.x; indxg<ntot; indxg+=blockDim.x*gridDim.x) {
-        j = indxg/size_x1;
-        i = indxg -size_x1*j - NGHX1;
+    int i,j,indx;
+    for(indx = blockIdx.x*blockDim.x + threadIdx.x; indx<ntot; indx+=blockDim.x*gridDim.x) {
+        j = indx/size_x1;
+        i = indx -size_x1*j - NGHX1;
         j -= NGHX2;
         if ((i>=-NGHX1)&&(i<0)&&(j>=-NGHX2)&&(j<nx2+NGHX2)) {
         /* Lower x1 */
-            periodic_boundary_x1_inner(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
+            outflow_boundary_x1_inner(indx,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
 
         }
         else if ((j>=-NGHX2)&&(j<0)&&(i>=-NGHX1)&&(i<nx1+NGHX1)) {
         /* Lower x2 */
+             outflow_boundary_x2_inner(indx,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
 
-            periodic_boundary_x2_inner(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
         }
         else if ((i>=nx1)&&(i<nx1+NGHX1)&&(j>=-NGHX2)&&(j<nx2+NGHX2))  {
         /* Upper x1 */
-            periodic_boundary_x1_outer(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
+             outflow_boundary_x1_outer(indx,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
 
         }
         else if ((j>=nx2)&&(j<nx2+NGHX2)&&(i>=-NGHX1)&&(i<nx1+NGHX1)) {
         /* Upper x2 */
-            periodic_boundary_x2_outer(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
+             outflow_boundary_x2_outer(indx,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
 
 
         }
@@ -143,22 +143,43 @@ void init_gas(GridCons *grid, Parameters *params) {
 
     real u1 = 0;
     real u2 = 0;
+    
+    real rad, uphi, cp,sp;
 
     real norm;
     srand(time(NULL));
 
-
+        
     for(j=-NGHX2;j<nx2+NGHX2;j++) {
         for(i=-NGHX1;i<nx1+NGHX1;i++) {
             indx = INDEX(i,j); 
             //indx = i + size_x1*j;
 
-            u2 = -.5; 
-            u1 = 1.;
-            pres = 1.;
+            u1 = 0.;
+            u2 = 0.;
+            rho[indx] = 1.;
+            
+            rad = sqrt(x1[i]*x1[i]+x2[j]*x2[j]);
+            
+            if (rad < .2) {
+                uphi = 5*rad;
+                pres = 5 + 25. *.5*rad*rad;
+                
+            }
+            else if ( rad < .4) {
+                uphi = 2 - 5*rad;
+                pres = 9. - 4*log(.2) + .5*25*rad*rad
+                      -20*rad + 4*log(rad);
+            }
+            else {
+                uphi = 0.;
+                pres = 3 + 4*log(2.);
+            }
+            
+            u1 = -x2[j]/rad * uphi;
+            u2 = x1[i]/rad * uphi;
 
-            rho[indx] = 1 + .2*sin(M_PI*(x1[i]+x2[j]));
-
+            
             mx1[indx] = u1*rho[indx];
             mx2[indx] = u2*rho[indx];
             mx3[indx] = 0.;
@@ -171,16 +192,15 @@ void init_gas(GridCons *grid, Parameters *params) {
                 grid->cons[n*ntot+indx] = 0;
             }
 
-
+     
 
 
 
         }
     }
 
-    FILE *f = fopen("out/rt/ic.dat","w");
-    fwrite(&grid->cons[2*ntot-grid->offset],ntot,sizeof(real),f);
-    fclose(f);
+  ;
+
 
     return;
 

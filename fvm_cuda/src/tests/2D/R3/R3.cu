@@ -13,22 +13,22 @@ __global__ void boundary_kernel(real *cons, real *intenergy, real *x1, real *x2,
         j -= NGHX2;
         if ((i>=-NGHX1)&&(i<0)&&(j>=-NGHX2)&&(j<nx2+NGHX2)) {
         /* Lower x1 */
-            periodic_boundary_x1_inner(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
+            outflow_boundary_x1_inner(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
 
         }
         else if ((j>=-NGHX2)&&(j<0)&&(i>=-NGHX1)&&(i<nx1+NGHX1)) {
         /* Lower x2 */
 
-            periodic_boundary_x2_inner(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
+            outflow_boundary_x2_inner(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
         }
         else if ((i>=nx1)&&(i<nx1+NGHX1)&&(j>=-NGHX2)&&(j<nx2+NGHX2))  {
         /* Upper x1 */
-            periodic_boundary_x1_outer(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
+            outflow_boundary_x1_outer(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
 
         }
         else if ((j>=nx2)&&(j<nx2+NGHX2)&&(i>=-NGHX1)&&(i<nx1+NGHX1)) {
         /* Upper x2 */
-            periodic_boundary_x2_outer(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
+            outflow_boundary_x2_outer(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
 
 
         }
@@ -151,13 +151,38 @@ void init_gas(GridCons *grid, Parameters *params) {
     for(j=-NGHX2;j<nx2+NGHX2;j++) {
         for(i=-NGHX1;i<nx1+NGHX1;i++) {
             indx = INDEX(i,j); 
-            //indx = i + size_x1*j;
-
-            u2 = -.5; 
-            u1 = 1.;
-            pres = 1.;
-
-            rho[indx] = 1 + .2*sin(M_PI*(x1[i]+x2[j]));
+            
+            /* Lower left */
+            if ((xm2[j+1]<=.5)&&(xm1[i+1]<=.5)) {
+                pres = .028;
+                rho[indx] =.138;
+                u1 = 1.206;
+                u2 = 1.206;
+            }
+            /* Lower right */
+            if ((xm2[j+1]<=.5)&&(xm1[i+1]>.5)) {
+                pres = .3;
+                rho[indx] =.5323;
+                u1 = 0.;
+                u2 = 1.206;
+                
+            }
+            /* Upper left */
+            if ((xm2[j+1]>.5)&&(xm1[i+1]<=.5)) {
+                pres = .3;
+                rho[indx] =.5323;
+                u1 = 1.206;
+                u2 = 0;
+                
+            }
+            /* Upper right */
+            if ((xm2[j+1]>.5)&&(xm1[i+1]>.5)) {
+                pres = 1.5;
+                rho[indx] =1.5;
+                u1 = 0;
+                u2 = 0;
+                
+            }
 
             mx1[indx] = u1*rho[indx];
             mx2[indx] = u2*rho[indx];
@@ -177,10 +202,6 @@ void init_gas(GridCons *grid, Parameters *params) {
 
         }
     }
-
-    FILE *f = fopen("out/rt/ic.dat","w");
-    fwrite(&grid->cons[2*ntot-grid->offset],ntot,sizeof(real),f);
-    fclose(f);
 
     return;
 
