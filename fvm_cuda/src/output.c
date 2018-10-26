@@ -24,8 +24,8 @@ void output(int step, GridCons *grid, FluxCons *fluxes, Parameters *params) {
     sprintf(fname, "%s_%d.h5",params->outputname,step);
 
 
-    real *xm1 = grid->xm1;
-    real *xm2 = grid->xm2;
+    real *xm1 = &grid->xm1[-NGHX1];
+    real *xm2 = &grid->xm2[-NGHX2];
 
 
     real *rho       = &grid->cons[0*grid->ntot-grid->offset];
@@ -45,8 +45,8 @@ void output(int step, GridCons *grid, FluxCons *fluxes, Parameters *params) {
     real time[1] = {grid->time};
     real gamma[1] = {params->gamma};
 
-    dims_x1[0] = grid->nx[0]+1;
-    dims_x2[0] = grid->nx[1]+1;
+    dims_x1[0] = grid->size_x[0] + 1;
+    dims_x2[0] = grid->size_x[1] + 1;
     dims3[0] = grid->size_x[0];
     dims3[1] = grid->size_x[1];
     //for(i=0;i<3;i++) dims3[i] = grid->nx[i];

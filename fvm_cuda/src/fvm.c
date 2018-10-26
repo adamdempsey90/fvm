@@ -36,26 +36,32 @@ int main(int argc, char *argv[]) {
     Nout = params->Nout;
     step = 0;
     real dtout = params->dtout;
-
+    real dt_curr;
+    
+    int threads = 256;
+    int blocks = min((grid->ntot+threads-1)/threads,1024);
+    printf("Threads %d, Blocks %d\n",threads,blocks);
+    
 #ifndef PROF
     output(step,grid,fluxes,params);
 #endif
+    
+    dt_curr = algogas_firststep(params->tend,threads, blocks,grid, fluxes,params);
 
     if (params->one_step) {
         printf("Executing one step then exiting.\n");
-        algogas_onestep(params->tend,grid,fluxes,params);
         step += 1;
         printf("Output %d at t=%.2e\n",step,grid->time);
 #ifndef PROF
         output(step,grid,fluxes,params); // Output 
 #endif
     }
-
     else {
         printf("Evolving from %.2e to %.2e\n",grid->time,params->tend);
 
         for(step=1;step<=Nout;step++) {
-            algogas_dt(dtout,grid,fluxes,params); // Evolve for a time of dtout
+            // Evolve for a time of dtout
+            dt_curr = algogas_dt(dt_curr, dtout,threads, blocks,grid,fluxes,params); 
             printf("Output %d at t=%.2e\n",step,grid->time);
 #ifndef PROF
             output(step,grid,fluxes,params); // Output 

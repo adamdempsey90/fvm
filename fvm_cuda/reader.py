@@ -9,12 +9,16 @@ class Sim2D():
             self.time = float(f['time'][...])
 
             self.xm1 = f['xm1'][...]
+            if not with_ghost:
+                self.xm1 = self.xm1[3:-3]
             self.xc1 = .5*(self.xm1[1:] + self.xm1[:-1])
             self.dx1 = np.diff(self.xm1)
             nx1 = len(self.xc1)
             self.nx1 = nx1
 
             self.xm2 = f['xm2'][...]
+            if not with_ghost:
+                self.xm2 = self.xm1[3:-3]
             self.xc2 = .5*(self.xm2[1:] + self.xm2[:-1])
             self.dx2 = np.diff(self.xm2)
             nx2 = len(self.xc2)
@@ -41,7 +45,7 @@ class Sim2D():
             self.intenergy = self.intenergy[3:-3,3:-3]
         self.pres = (self.energy-self.ke)*(self.gamma-1)
         self.cs = np.sqrt(self.gamma*self.pres/self.rho)
-        self.temp = self.pres/self.rho / (self.gamma-1)
+        self.temp = self.intenergy*self.gamma/self.rho
         self.vort = np.gradient(self.vx2,self.dx1[0],axis=1,edge_order=2) - np.gradient(self.vx1,self.dx2[0],axis=0,edge_order=2)
         if self.nan_check():
             print('NaN detected!')

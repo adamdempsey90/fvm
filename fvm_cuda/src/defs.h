@@ -3,6 +3,9 @@
 #include <string.h>
 #include <math.h>
 #include <complex.h>
+#include "prob_defs.h"
+
+
 
 #define TRUE 1
 #define FALSE 0
@@ -20,18 +23,6 @@
 #define INDEX(i,j) ( (i) + (j)*size_x1)
 
 
-#define CTU
-//#define PCM
-#define PLM
-//#define MINMOD
-
-//#define POTENTIAL
-
-#define EXACT
-#define EXACT_TOL 1e-6
-
-//#define HLL
-//#define HLLC
 
 #ifndef M_PI
     #define M_PI 3.14159265358979323846

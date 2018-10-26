@@ -4,7 +4,7 @@
 #define DTMIN 1e-8
 
 //extern "C" {
-void algogas_single(real dt_max, 
+void algogas_single(real dt,
         real *d_cons,
         real *d_intenergy,
         real *d_UL_1,
@@ -30,29 +30,41 @@ void algogas_single(real dt_max,
     int size_x1 = grid->size_x[0];
     int nf = grid->nf;
     int offset = grid->offset;
-    real dt;
 
-    /* Calculate new timestep */
-    timestep_kernel<<<blocks,threads>>>(d_cons,d_dx1,d_dx2,dt_arr,nx1,nx2,size_x1,
-            ntot,offset,params->gamma,params->gamma_1);
+    
+#ifdef CONDUCTION
+     conduction_flux<<<blocks,threads>>>(d_cons,
+            d_intenergy,
+            d_F_1,
+            d_F_2,
+            d_dx1,
+            d_dx2,
+            d_x1,
+            d_x2,
+            params->gamma,
+            dt,
+            nx1,
+            nx2,
+            size_x1,
+            ntot,
+            offset,
+            nf);
     cudaCheckError();
-    timestep_kernel_final<<<1,blocks>>>(dt_arr,dt_arr,blocks,params->cfl);
+    conduction_update<<<blocks,threads>>>(d_cons,
+            d_intenergy,
+            d_F_1,
+            d_F_2,
+            d_dx1,
+            d_dx2,
+            dt,
+            nx1,
+            nx2,
+            size_x1,
+            ntot,
+            offset,
+            nf);
     cudaCheckError();
-
-    cudaMemcpy(&dt,dt_arr,sizeof(real),cudaMemcpyDeviceToHost);
-    cudaCheckError();
-    if (dt < DTMIN){
-        printf("Timestep %.4e fell below minimum value of %.1e\n",dt,DTMIN);
-        exit(1);
-    }
-    if (dt > dt_max) dt = dt_max;
-
-
-
-    /* Set boundaries */
-
-    boundary_kernel<<<blocks,threads>>>(d_cons,d_intenergy,d_x1,d_x2,nx1,nx2,size_x1,nf,ntot,offset,params->gamma_1,grid->time);
-    cudaCheckError();
+#endif
 
 
 
@@ -265,30 +277,26 @@ void algogas_single(real dt_max,
             nf);
     cudaCheckError();
 
-    grid->time += dt;
+   
+    
 
 
 
 
     return;
 }
-void algogas_dt(real dtout, GridCons *grid, FluxCons *fluxes, Parameters *params) {
-    real end_time = grid->time + dtout;
-    real dt_max;
+void allocate_device(real *d_cons, real *d_intenergy,
+    real *d_F_1, real *d_UL_1, real *d_UR_1,
+    real *d_F_2, real *d_UL_2,real *d_UR_2,
+    real *d_dx1, real *d_dx2,
+    real *d_x1, real *d_x2,
+    real *dt_arr,real *d_dhalf,int blocks, GridCons *grid, Parameters *params) {
+    
     int ntot = grid->ntot;
     int nf = grid->nf;
     int size_x1 = grid->size_x[0];
     int size_x2 = grid->size_x[1];
     int offset = grid->offset;
-
-
-    real *d_cons, *d_intenergy;
-    real *d_F_1, *d_UL_1, *d_UR_1;
-    real *d_F_2, *d_UL_2, *d_UR_2;
-    real *d_dx1, *d_dx2;
-    real *d_x1, *d_x2;
-    real *dt_arr;
-    real *d_dhalf;
 
     cudaMalloc((void**)&d_dx1,sizeof(real)*size_x1);
     cudaCheckError();
@@ -359,16 +367,41 @@ void algogas_dt(real dtout, GridCons *grid, FluxCons *fluxes, Parameters *params
     cudaMalloc((void**)&d_dhalf,sizeof(real)*ntot);
     cudaCheckError();
 
-    int threads = 256;
-    int blocks = min((ntot+threads-1)/threads,1024);
 
     cudaMalloc((void**)&dt_arr,sizeof(real)*blocks);
     cudaCheckError();
+    return;
+}
 
+real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, FluxCons *fluxes, Parameters *params) {
+    real end_time = grid->time + dtout;
+    real dt_max;
+    int ntot = grid->ntot;
+    int nf = grid->nf;
+    int size_x1 = grid->size_x[0];
+    int size_x2 = grid->size_x[1];
+    int offset = grid->offset;
+
+
+    real *d_cons, *d_intenergy;
+    real *d_F_1, *d_UL_1, *d_UR_1;
+    real *d_F_2, *d_UL_2, *d_UR_2;
+    real *d_dx1, *d_dx2;
+    real *d_x1, *d_x2;
+    real *dt_arr;
+    real *d_dhalf;
+    
+    
+    allocate_device(d_cons,d_intenergy,d_F_1,d_UL_1,
+                    d_UR_1,d_F_2,d_UL_2,d_UR_2,
+                    d_dx1,d_dx2,d_x1,d_x2,dt_arr,d_dhalf,
+                    blocks, grid,params);
+
+   
+    
     while (grid->time < end_time) { 
-        /* Time-step */
-        dt_max = end_time - grid->time;
-        algogas_single(dt_max, 
+        /* Advance by dt */
+        algogas_single(dt, 
             d_cons,
             d_intenergy,
             d_UL_1,
@@ -378,23 +411,39 @@ void algogas_dt(real dtout, GridCons *grid, FluxCons *fluxes, Parameters *params
             d_UR_2,
             d_F_2,
             d_dhalf,
-            &d_dx1[NGHX1],
-            &d_dx2[NGHX2],
-            d_x1 + NGHX1,
-            d_x2 + NGHX2,
+            d_dx1 + NGHX1,
+            d_dx2 + NGHX2,
+            d_x1  + NGHX1,
+            d_x2  + NGHX2,
             dt_arr,
             blocks,
             threads,
             grid, params);
+    /* Set new timestep and bcs */
+        grid->time += dt;
+        dt_max = end_time - grid->time;
+        dt = set_bc_timestep(dt_max, 
+                d_cons,
+                d_intenergy,
+                d_dx1 + NGHX1,
+                d_dx2 + NGHX2,
+                d_x1  + NGHX1,
+                d_x2  + NGHX2,
+                dt_arr,
+                blocks,
+                threads,
+                grid,params);
 
     }
 
+    /* Copy to host */
 	cudaMemcpy(&grid->cons[-offset],d_cons,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
     cudaCheckError();
 
 	cudaMemcpy(&grid->intenergy[-offset],d_intenergy,sizeof(real)*ntot,cudaMemcpyDeviceToHost);
     cudaCheckError();
 
+    /* Free device arrays */
     cudaFree(d_cons);
     cudaFree(d_intenergy);
     cudaFree(d_F_1);
@@ -410,11 +459,11 @@ void algogas_dt(real dtout, GridCons *grid, FluxCons *fluxes, Parameters *params
     cudaFree(dt_arr);
     cudaFree(d_dhalf);
 
-    return;
+    return dt;
 }
-void algogas_onestep(real dtout, GridCons *grid, FluxCons *fluxes, Parameters *params) {
+real algogas_firststep(real dtout, int threads, int blocks, GridCons *grid, FluxCons *fluxes, Parameters *params) {
     real end_time = grid->time + dtout;
-    real dt_max;
+    real dt_max,dt;
     int ntot = grid->ntot;
     int nf = grid->nf;
     int size_x1 = grid->size_x[0];
@@ -430,84 +479,31 @@ void algogas_onestep(real dtout, GridCons *grid, FluxCons *fluxes, Parameters *p
     real *dt_arr;
     real *d_dhalf;
 
-    cudaMalloc((void**)&d_dx1,sizeof(real)*size_x1);
-    cudaCheckError();
-	cudaMemcpy(d_dx1,
-            &grid->dx1[-NGHX1],
-            sizeof(real)*size_x1,
-            cudaMemcpyHostToDevice);
-    cudaCheckError();
+    allocate_device(d_cons,d_intenergy,d_F_1,d_UL_1,
+                    d_UR_1,d_F_2,d_UL_2,d_UR_2,
+                    d_dx1,d_dx2,d_x1,d_x2,dt_arr,d_dhalf,
+                    blocks,grid,params);
+
+
+   
     
-    cudaMalloc((void**)&d_dx2,sizeof(real)*size_x2);
-    cudaCheckError();
-	cudaMemcpy(d_dx2,
-            &grid->dx2[-NGHX2],
-            sizeof(real)*size_x2,
-            cudaMemcpyHostToDevice);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_x1,sizeof(real)*size_x1);
-    cudaCheckError();
-	cudaMemcpy(d_x1,
-            &grid->xc1[-NGHX1],
-            sizeof(real)*size_x1,
-            cudaMemcpyHostToDevice);
-    cudaCheckError();
-    
-    cudaMalloc((void**)&d_x2,sizeof(real)*size_x2);
-    cudaCheckError();
-	cudaMemcpy(d_x2,
-            &grid->xc2[-NGHX2],
-            sizeof(real)*size_x2,
-            cudaMemcpyHostToDevice);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_cons,sizeof(real)*ntot*nf);
-    cudaCheckError();
-	cudaMemcpy(d_cons,
-            &grid->cons[-offset],
-            sizeof(real)*ntot*nf,
-            cudaMemcpyHostToDevice);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_intenergy,sizeof(real)*ntot);
-    cudaCheckError();
-	cudaMemcpy(d_intenergy,
-            &grid->intenergy[-offset],
-            sizeof(real)*ntot,
-            cudaMemcpyHostToDevice);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_UL_1,sizeof(real)*ntot*nf);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_UR_1,sizeof(real)*ntot*nf);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_F_1,sizeof(real)*ntot*nf);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_UL_2,sizeof(real)*ntot*nf);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_UR_2,sizeof(real)*ntot*nf);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_F_2,sizeof(real)*ntot*nf);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_dhalf,sizeof(real)*ntot);
-    cudaCheckError();
-
-    int threads = 256;
-    int blocks = min((ntot+threads-1)/threads,1024);
-    printf("Threads %d, Blocks %d\n",threads,blocks);
-
-    cudaMalloc((void**)&dt_arr,sizeof(real)*blocks);
-    cudaCheckError();
-
     dt_max = end_time - grid->time;
-    algogas_single(dt_max, 
+
+    /* Set new timestep and bcs */
+    dt = set_bc_timestep(dt_max, 
+        d_cons,
+        d_intenergy,
+        d_dx1 + NGHX1,
+        d_dx2 + NGHX2,
+        d_x1  + NGHX1,
+        d_x2  + NGHX2,
+        dt_arr,
+        blocks,
+        threads,
+        grid,params);
+
+    /* Take one step */
+    algogas_single(dt, 
         d_cons,
         d_intenergy,
         d_UL_1,
@@ -525,15 +521,30 @@ void algogas_onestep(real dtout, GridCons *grid, FluxCons *fluxes, Parameters *p
         blocks,
         threads,
         grid, params);
-
     
-
+    grid->time += dt;
+    /* Get new timestep */
+    dt_max = end_time - grid->time;
+    dt = set_bc_timestep(dt_max, 
+        d_cons,
+        d_intenergy,
+        d_dx1 + NGHX1,
+        d_dx2 + NGHX2,
+        d_x1  + NGHX1,
+        d_x2  + NGHX2,
+        dt_arr,
+        blocks,
+        threads,
+        grid,params);
+    
+    /* Copy results to host */
 	cudaMemcpy(&grid->cons[-offset],d_cons,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
     cudaCheckError();
 
 	cudaMemcpy(&grid->intenergy[-offset],d_intenergy,sizeof(real)*ntot,cudaMemcpyDeviceToHost);
     cudaCheckError();
 
+    /* Free device arrays */
     cudaFree(d_cons);
     cudaFree(d_intenergy);
     cudaFree(d_F_1);
@@ -548,6 +559,55 @@ void algogas_onestep(real dtout, GridCons *grid, FluxCons *fluxes, Parameters *p
     cudaFree(d_x2);
     cudaFree(dt_arr);
     cudaFree(d_dhalf);
-    return;
+    return dt;
 }
 //}
+
+
+real set_bc_timestep(real dt_max, 
+        real *d_cons,
+        real *d_intenergy,
+        real *d_dx1,
+        real *d_dx2,
+        real *d_x1,
+        real *d_x2,
+        real *dt_arr,
+        int blocks,
+        int threads,
+        GridCons *grid, Parameters *params) {
+
+
+    int nx1 = grid->nx[0];
+    int nx2 = grid->nx[1];
+    int ntot = grid->ntot;
+    int size_x1 = grid->size_x[0];
+    int nf = grid->nf;
+    int offset = grid->offset;
+    real dt;
+
+    /* Calculate new timestep */
+    timestep_kernel<<<blocks,threads>>>(d_cons,d_dx1,d_dx2,d_x1,d_x2,dt_arr,nx1,nx2,size_x1,
+            ntot,offset,params->gamma,params->gamma_1);
+    cudaCheckError();
+    
+    timestep_kernel_final<<<1,blocks>>>(dt_arr,dt_arr,blocks,params->cfl);
+    cudaCheckError();
+
+    cudaMemcpy(&dt,dt_arr,sizeof(real),cudaMemcpyDeviceToHost);
+    cudaCheckError();
+   
+    if (dt < DTMIN){
+        printf("Timestep %.4e fell below minimum value of %.1e\n",dt,DTMIN);
+        exit(1);
+    }
+    if (dt > dt_max) dt = dt_max;
+
+
+
+    /* Set boundaries */
+
+    boundary_kernel<<<blocks,threads>>>(d_cons,d_intenergy,d_x1,d_x2,nx1,nx2,size_x1,nf,ntot,offset,params->gamma_1,grid->time);
+    cudaCheckError();
+    
+    return dt;
+}

@@ -14,6 +14,25 @@
 
 #define GINDEX(i,j) ( (offset) + (i) + (j)*size_x1)
 
+#ifdef CONDUCTION
+__global__ void conduction_flux(real *cons, real *intenergy, real *F_1, real *F_2,
+        real *dx1, real *dx2, real *x1, real *x2, real g, real dt, int nx1, int nx2, int size_x1, int ntot, int offset, int nf);
+__global__ void conduction_update(real *cons, real *intenergy, real *F_1, real *F_2,
+        real *dx1, real *dx2, real dt, int nx1, int nx2, int size_x1, int ntot, int offset, int nf);
+#endif
+
+real set_bc_timestep(real dt_max, 
+        real *d_cons,
+        real *d_intenergy,
+        real *d_dx1,
+        real *d_dx2,
+        real *d_x1,
+        real *d_x2,
+        real *dt_arr,
+        int blocks,
+        int threads,
+        GridCons *grid, Parameters *params);
+
 __global__ void compute_dhalf(real *cons, real *dhalf, real *F_1, real *F_2,
         real *dx1, real *dx2, real dt, int nx1, int nx2, int size_x1, int ntot, int offset, int nf);
 
@@ -46,7 +65,7 @@ __global__ void plm(real *cons, real *UL, real *UR, real *dx,
         int dir1,int nx1, int nx2, int size_x1, 
         int nf,int ntot, int offset, real g1, real dt);
 __global__ void timestep_kernel_final(real *in, real *out ,int n, real cfl);
-__global__ void timestep_kernel(real *cons, real *dx1, real *dx2, real *out ,int nx1, int nx2, int size_x1, int ntot,int offset, real g, real g1);
+__global__ void timestep_kernel(real *cons, real *dx1, real *dx2, real *x1, real *x2, real *out ,int nx1, int nx2, int size_x1, int ntot,int offset, real g, real g1);
 __global__ void boundary_kernel(real *cons, real *intenergy, real *x1, real *x2, int nx1, int nx2, int size_x1, int nf, int ntot, int offset, real g, real time);
 
 __device__ void hllc(real dL, real uL, real pL, real aL,

@@ -1,6 +1,11 @@
 #include "defs.h"
 #include "cuda_defs.h"
 
+
+#ifdef CONDUCTION
+extern __device__ real thermal_diff(real rho, real x1, real x2, real delad);
+#endif
+
 __inline__ __device__ real warpReduceMin(real val) {
     for(int offset = 16; offset >0; offset /= 2) {
 #if __CUDACC_VER_MAJOR__ < 9
@@ -31,10 +36,15 @@ __inline__ __device__ real blockReduceMin(real val) {
     return val;
 }
 
-__global__ void timestep_kernel(real *cons, real *dx1, real *dx2, real *out ,int nx1, int nx2, int size_x1, int ntot,int offset, real g, real g1) {
+__global__ void timestep_kernel(real *cons, real *dx1, real *dx2, real *x1, real *x2, real *out ,int nx1, int nx2, int size_x1, int ntot,int offset, real g, real g1) {
     int i,j,indx;
     real curr_min = FLOATMAX;
     real pres,cs,u1,dt1,u2,dt2,dt;
+    
+#ifdef CONDUCTION
+    real kappa;
+    real delad = 1. - 1./g;
+#endif
     for(indx = blockIdx.x*blockDim.x + threadIdx.x; indx<ntot;indx +=blockDim.x*gridDim.x) {
         j = indx/size_x1;
         i = indx -size_x1*j - NGHX1;
@@ -53,6 +63,17 @@ __global__ void timestep_kernel(real *cons, real *dx1, real *dx2, real *out ,int
             dt2 = dx2[j]/(u2 + cs);
 
             dt = (dt1 < dt2) ? dt1 : dt2;
+            
+            printf("%d %d dt %e %e %e\n",i,j,dt1,dt2,dt);
+
+#ifdef CONDUCTION
+            kappa = thermal_diff(cons[indx],x1[i],x2[j],delad);
+            dt1 = dx1[i]*dx1[i]/kappa;
+            dt2 = dx2[j]*dx2[j]/kappa;
+            dt1 = (dt1 < dt2) ? dt1 : dt2;
+            dt = (dt < dt1) ? dt : dt1;
+           // printf("%d %d new dt %e %e %e\n",i,j,dt1,dt2,dt);
+#endif
 
             if (dt < curr_min) curr_min = dt;
 
@@ -61,6 +82,7 @@ __global__ void timestep_kernel(real *cons, real *dx1, real *dx2, real *out ,int
 
 
     }
+    printf("%d %e\n",blockIdx.x,curr_min);
     curr_min = blockReduceMin(curr_min);
     if (threadIdx.x ==0) out[blockIdx.x]=curr_min;
     return;
