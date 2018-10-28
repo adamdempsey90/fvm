@@ -285,93 +285,6 @@ void algogas_single(real dt,
 
     return;
 }
-void allocate_device(real *d_cons, real *d_intenergy,
-    real *d_F_1, real *d_UL_1, real *d_UR_1,
-    real *d_F_2, real *d_UL_2,real *d_UR_2,
-    real *d_dx1, real *d_dx2,
-    real *d_x1, real *d_x2,
-    real *dt_arr,real *d_dhalf,int blocks, GridCons *grid, Parameters *params) {
-    
-    int ntot = grid->ntot;
-    int nf = grid->nf;
-    int size_x1 = grid->size_x[0];
-    int size_x2 = grid->size_x[1];
-    int offset = grid->offset;
-
-    cudaMalloc((void**)&d_dx1,sizeof(real)*size_x1);
-    cudaCheckError();
-	cudaMemcpy(d_dx1,
-            &grid->dx1[-NGHX1],
-            sizeof(real)*size_x1,
-            cudaMemcpyHostToDevice);
-    cudaCheckError();
-    
-    cudaMalloc((void**)&d_dx2,sizeof(real)*size_x2);
-    cudaCheckError();
-	cudaMemcpy(d_dx2,
-            &grid->dx2[-NGHX2],
-            sizeof(real)*size_x2,
-            cudaMemcpyHostToDevice);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_x1,sizeof(real)*size_x1);
-    cudaCheckError();
-	cudaMemcpy(d_x1,
-            &grid->xc1[-NGHX1],
-            sizeof(real)*size_x1,
-            cudaMemcpyHostToDevice);
-    cudaCheckError();
-    
-    cudaMalloc((void**)&d_x2,sizeof(real)*size_x2);
-    cudaCheckError();
-	cudaMemcpy(d_x2,
-            &grid->xc2[-NGHX2],
-            sizeof(real)*size_x2,
-            cudaMemcpyHostToDevice);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_cons,sizeof(real)*ntot*nf);
-    cudaCheckError();
-	cudaMemcpy(d_cons,
-            &grid->cons[-offset],
-            sizeof(real)*ntot*nf,
-            cudaMemcpyHostToDevice);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_intenergy,sizeof(real)*ntot);
-    cudaCheckError();
-	cudaMemcpy(d_intenergy,
-            &grid->intenergy[-offset],
-            sizeof(real)*ntot,
-            cudaMemcpyHostToDevice);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_UL_1,sizeof(real)*ntot*nf);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_UR_1,sizeof(real)*ntot*nf);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_F_1,sizeof(real)*ntot*nf);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_UL_2,sizeof(real)*ntot*nf);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_UR_2,sizeof(real)*ntot*nf);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_F_2,sizeof(real)*ntot*nf);
-    cudaCheckError();
-
-    cudaMalloc((void**)&d_dhalf,sizeof(real)*ntot);
-    cudaCheckError();
-
-
-    cudaMalloc((void**)&dt_arr,sizeof(real)*blocks);
-    cudaCheckError();
-    return;
-}
 
 real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, FluxCons *fluxes, Parameters *params) {
     real end_time = grid->time + dtout;
@@ -392,10 +305,60 @@ real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, Fl
     real *d_dhalf;
     
     
-    allocate_device(d_cons,d_intenergy,d_F_1,d_UL_1,
-                    d_UR_1,d_F_2,d_UL_2,d_UR_2,
-                    d_dx1,d_dx2,d_x1,d_x2,dt_arr,d_dhalf,
-                    blocks, grid,params);
+    cudaMalloc((void**)&d_dx1,sizeof(real)*size_x1);
+	cudaCheckError();
+	cudaMemcpy(d_dx1,&grid->dx1[-NGHX1],sizeof(real)*size_x1,cudaMemcpyHostToDevice);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_dx2,sizeof(real)*size_x2);
+	cudaCheckError();
+	cudaMemcpy(d_dx2,&grid->dx2[-NGHX2],sizeof(real)*size_x2,cudaMemcpyHostToDevice);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_x1,sizeof(real)*size_x1);
+	cudaCheckError();
+	cudaMemcpy(d_x1,&grid->xc1[-NGHX1],sizeof(real)*size_x1,cudaMemcpyHostToDevice);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_x2,sizeof(real)*size_x2);
+	cudaCheckError();
+	cudaMemcpy(d_x2,&grid->xc2[-NGHX2],sizeof(real)*size_x2,cudaMemcpyHostToDevice);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_cons,sizeof(real)*ntot*nf);
+	cudaCheckError();
+	cudaMemcpy(d_cons,&grid->cons[-offset],sizeof(real)*ntot*nf,cudaMemcpyHostToDevice);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_intenergy,sizeof(real)*ntot);
+	cudaCheckError();
+	cudaMemcpy(d_intenergy,&grid->intenergy[-offset],sizeof(real)*ntot,cudaMemcpyHostToDevice);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_UL_1,sizeof(real)*ntot*nf);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_UR_1,sizeof(real)*ntot*nf);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_F_1,sizeof(real)*ntot*nf);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_UL_2,sizeof(real)*ntot*nf);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_UR_2,sizeof(real)*ntot*nf);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_F_2,sizeof(real)*ntot*nf);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_dhalf,sizeof(real)*ntot);
+	cudaCheckError();
+
+
+	cudaMalloc((void**)&dt_arr,sizeof(real)*blocks);
+	cudaCheckError();
 
    
     
@@ -479,17 +442,68 @@ real algogas_firststep(real dtout, int threads, int blocks, GridCons *grid, Flux
     real *dt_arr;
     real *d_dhalf;
 
-    allocate_device(d_cons,d_intenergy,d_F_1,d_UL_1,
-                    d_UR_1,d_F_2,d_UL_2,d_UR_2,
-                    d_dx1,d_dx2,d_x1,d_x2,dt_arr,d_dhalf,
-                    blocks,grid,params);
 
+    cudaMalloc((void**)&d_dx1,sizeof(real)*size_x1);
+	cudaCheckError();
+	cudaMemcpy(d_dx1,&grid->dx1[-NGHX1],sizeof(real)*size_x1,cudaMemcpyHostToDevice);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_dx2,sizeof(real)*size_x2);
+	cudaCheckError();
+	cudaMemcpy(d_dx2,&grid->dx2[-NGHX2],sizeof(real)*size_x2,cudaMemcpyHostToDevice);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_x1,sizeof(real)*size_x1);
+	cudaCheckError();
+	cudaMemcpy(d_x1,&grid->xc1[-NGHX1],sizeof(real)*size_x1,cudaMemcpyHostToDevice);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_x2,sizeof(real)*size_x2);
+	cudaCheckError();
+	cudaMemcpy(d_x2,&grid->xc2[-NGHX2],sizeof(real)*size_x2,cudaMemcpyHostToDevice);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_cons,sizeof(real)*ntot*nf);
+	cudaCheckError();
+	cudaMemcpy(d_cons,&grid->cons[-offset],sizeof(real)*ntot*nf,cudaMemcpyHostToDevice);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_intenergy,sizeof(real)*ntot);
+	cudaCheckError();
+	cudaMemcpy(d_intenergy,&grid->intenergy[-offset],sizeof(real)*ntot,cudaMemcpyHostToDevice);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_UL_1,sizeof(real)*ntot*nf);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_UR_1,sizeof(real)*ntot*nf);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_F_1,sizeof(real)*ntot*nf);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_UL_2,sizeof(real)*ntot*nf);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_UR_2,sizeof(real)*ntot*nf);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_F_2,sizeof(real)*ntot*nf);
+	cudaCheckError();
+
+	cudaMalloc((void**)&d_dhalf,sizeof(real)*ntot);
+	cudaCheckError();
+
+
+	cudaMalloc((void**)&dt_arr,sizeof(real)*blocks);
+	cudaCheckError();
 
    
-    
+
     dt_max = end_time - grid->time;
 
     /* Set new timestep and bcs */
+
     dt = set_bc_timestep(dt_max, 
         d_cons,
         d_intenergy,
@@ -503,7 +517,8 @@ real algogas_firststep(real dtout, int threads, int blocks, GridCons *grid, Flux
         grid,params);
 
     /* Take one step */
-    algogas_single(dt, 
+
+    algogas_single(dt,
         d_cons,
         d_intenergy,
         d_UL_1,
@@ -521,11 +536,12 @@ real algogas_firststep(real dtout, int threads, int blocks, GridCons *grid, Flux
         blocks,
         threads,
         grid, params);
-    
+
     grid->time += dt;
     /* Get new timestep */
     dt_max = end_time - grid->time;
-    dt = set_bc_timestep(dt_max, 
+
+    dt = set_bc_timestep(dt_max,
         d_cons,
         d_intenergy,
         d_dx1 + NGHX1,
@@ -545,20 +561,21 @@ real algogas_firststep(real dtout, int threads, int blocks, GridCons *grid, Flux
     cudaCheckError();
 
     /* Free device arrays */
-    cudaFree(d_cons);
-    cudaFree(d_intenergy);
-    cudaFree(d_F_1);
-    cudaFree(d_UL_1);
-    cudaFree(d_UR_1);
-    cudaFree(d_F_2);
-    cudaFree(d_UL_2);
-    cudaFree(d_UR_2);
-    cudaFree(d_dx1);
-    cudaFree(d_dx2);
-    cudaFree(d_x1);
-    cudaFree(d_x2);
-    cudaFree(dt_arr);
-    cudaFree(d_dhalf);
+    cudaFree(d_cons); cudaCheckError();
+    cudaFree(d_intenergy);cudaCheckError();
+    cudaFree(d_F_1); cudaCheckError();
+    cudaFree(d_UL_1); cudaCheckError();
+    cudaFree(d_UR_1); cudaCheckError();
+    cudaFree(d_F_2); cudaCheckError();
+    cudaFree(d_UL_2); cudaCheckError();
+    cudaFree(d_UR_2); cudaCheckError();
+    cudaFree(d_dx1); cudaCheckError();
+    cudaFree(d_dx2); cudaCheckError();
+    cudaFree(d_x1); cudaCheckError();
+    cudaFree(d_x2); cudaCheckError();
+    cudaFree(dt_arr); cudaCheckError();
+    cudaFree(d_dhalf); cudaCheckError();
+
     return dt;
 }
 //}
@@ -598,7 +615,7 @@ real set_bc_timestep(real dt_max,
    
     if (dt < DTMIN){
         printf("Timestep %.4e fell below minimum value of %.1e\n",dt,DTMIN);
-        exit(1);
+        //exit(1);
     }
     if (dt > dt_max) dt = dt_max;
 
@@ -606,7 +623,7 @@ real set_bc_timestep(real dt_max,
 
     /* Set boundaries */
 
-    boundary_kernel<<<blocks,threads>>>(d_cons,d_intenergy,d_x1,d_x2,nx1,nx2,size_x1,nf,ntot,offset,params->gamma_1,grid->time);
+    boundary_kernel<<<blocks,threads>>>(d_cons,d_intenergy,d_x1,d_x2,nx1,nx2,size_x1,nf,ntot,offset,params->gamma,grid->time);
     cudaCheckError();
     
     return dt;

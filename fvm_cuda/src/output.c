@@ -20,6 +20,7 @@ void output(int step, GridCons *grid, FluxCons *fluxes, Parameters *params) {
     size_x1 = grid->size_x[0];
 
     char fname[512];
+    char scalarname[512];
 
     sprintf(fname, "%s_%d.h5",params->outputname,step);
 
@@ -73,6 +74,11 @@ void output(int step, GridCons *grid, FluxCons *fluxes, Parameters *params) {
     write_hdf5_real(mx3, dims3, 2, data_id, "Mx3");
     write_hdf5_real(energy, dims3, 2, data_id, "Energy");
     write_hdf5_real(intenergy, dims3, 2, data_id, "InternalEnergy");
+
+    for(i=5;i<grid->nf;i++) {
+    	sprintf(scalarname, "%s%d","Scalar",i-4);
+    	write_hdf5_real(&grid->cons[i*grid->ntot - grid->offset],dims3,2,data_id,scalarname);
+    }
 
     //status = H5Gclose(params_id);
     //if (status < 0) printf("HDF5 error\n");

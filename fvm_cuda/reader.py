@@ -9,20 +9,21 @@ class Sim2D():
             self.time = float(f['time'][...])
 
             self.xm1 = f['xm1'][...]
+
+            nx1 = len(self.xm1) - 1 -6
+            self.nx1 = nx1
             if not with_ghost:
                 self.xm1 = self.xm1[3:-3]
             self.xc1 = .5*(self.xm1[1:] + self.xm1[:-1])
             self.dx1 = np.diff(self.xm1)
-            nx1 = len(self.xc1)
-            self.nx1 = nx1
 
             self.xm2 = f['xm2'][...]
+            nx2 = len(self.xm2) - 1 - 6
+            self.nx2 = nx2
             if not with_ghost:
                 self.xm2 = self.xm1[3:-3]
             self.xc2 = .5*(self.xm2[1:] + self.xm2[:-1])
             self.dx2 = np.diff(self.xm2)
-            nx2 = len(self.xc2)
-            self.nx2 = nx2
 
             self.gamma = float(f['Gamma'][...])
             self.rho = f['Density'][...].reshape(nx2+6,nx1+6)
@@ -32,6 +33,12 @@ class Sim2D():
             self.energy = f['Energy'][...].reshape(nx2+6,nx1+6)
             self.ke = .5*self.rho*(self.vx1**2 + self.vx2**2 + self.vx3**2)
             self.intenergy = f['InternalEnergy'][...].reshape((nx2+6,nx1+6))
+
+            try:
+                self.scalar = f['Scalar1'][...].reshape(nx2 + 6, nx1 +6) / self.rho
+            except:
+                pass
+
             self.extent = (self.xm1.min(),self.xm1.max(),self.xm2.min(),
                     self.xm2.max())
 
@@ -43,9 +50,15 @@ class Sim2D():
             self.energy = self.energy[3:-3,3:-3]
             self.ke = self.ke[3:-3,3:-3]
             self.intenergy = self.intenergy[3:-3,3:-3]
+            try:
+                self.scalar = self.scalar[3:-3,3:-3]
+            except AttributeError:
+                pass
         self.pres = (self.energy-self.ke)*(self.gamma-1)
         self.cs = np.sqrt(self.gamma*self.pres/self.rho)
         self.temp = self.intenergy*self.gamma/self.rho
+        delad = 1. - 1./self.gamma
+        self.entropy = np.log(self.temp * self.pres**(-delad))
         self.vort = np.gradient(self.vx2,self.dx1[0],axis=1,edge_order=2) - np.gradient(self.vx1,self.dx2[0],axis=0,edge_order=2)
         if self.nan_check():
             print('NaN detected!')
@@ -65,7 +78,7 @@ class Sim2D():
             q = getattr(self,val)
         if norm is None:
             norm = colors.Normalize()
-        img = ax.imshow(q,origin='lower',extent=self.extent,norm=norm,cmap=cmap,**kargs)
+        img = ax.imshow(q.T,origin='lower',extent=self.extent,norm=norm,cmap=cmap,**kargs)
         if first:
             cb = _create_colorbar(ax,norm,cmap=cmap)
         else:

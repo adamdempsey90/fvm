@@ -22,7 +22,7 @@
 //#define INDEX(i,j,k) ( (i) + (j)*size_x1 + (k)*size_x12)
 #define INDEX(i,j) ( (i) + (j)*size_x1)
 
-
+//#define PROF
 
 #ifndef M_PI
     #define M_PI 3.14159265358979323846

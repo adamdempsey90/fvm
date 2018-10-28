@@ -64,7 +64,6 @@ __global__ void timestep_kernel(real *cons, real *dx1, real *dx2, real *x1, real
 
             dt = (dt1 < dt2) ? dt1 : dt2;
             
-            printf("%d %d dt %e %e %e\n",i,j,dt1,dt2,dt);
 
 #ifdef CONDUCTION
             kappa = thermal_diff(cons[indx],x1[i],x2[j],delad);
@@ -82,7 +81,6 @@ __global__ void timestep_kernel(real *cons, real *dx1, real *dx2, real *x1, real
 
 
     }
-    printf("%d %e\n",blockIdx.x,curr_min);
     curr_min = blockReduceMin(curr_min);
     if (threadIdx.x ==0) out[blockIdx.x]=curr_min;
     return;

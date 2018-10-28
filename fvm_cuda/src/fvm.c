@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
     output(step,grid,fluxes,params);
 #endif
     
-    dt_curr = algogas_firststep(params->tend,threads, blocks,grid, fluxes,params);
+   dt_curr = algogas_firststep(params->tend,threads, blocks,grid, fluxes,params);
 
     if (params->one_step) {
         printf("Executing one step then exiting.\n");
