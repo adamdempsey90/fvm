@@ -4,6 +4,7 @@
 
 int main(int argc, char *argv[]) {
     int Nout, step;
+    int restart = FALSE;
 
 
 
@@ -15,10 +16,17 @@ int main(int argc, char *argv[]) {
     read_pars(params,argc,argv);
     printf("Allocating\n");
     allocate(grid,fluxes,params);
+    grid->time = 0.;
     printf("Init mesh\n");
     init_mesh(grid,params);
-    printf("Init gas\n");
-    init_gas(grid,params);
+
+    if (restart) {
+    	read_restart("out/restart.h5",grid,fluxes,params);
+    }
+    else {
+    	printf("Init gas\n");
+    	init_gas(grid,params);
+    }
 
     printf("Outputting results to %s\n",params->outputname);
 
@@ -35,7 +43,7 @@ int main(int argc, char *argv[]) {
 
     Nout = params->Nout;
     step = 0;
-    real dtout = params->dtout;
+    real dtout = (params->tend - grid->time)/(float)params->Nout;
     real dt_curr;
     
     int threads = 256;

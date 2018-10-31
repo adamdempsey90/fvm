@@ -49,7 +49,7 @@ void allocate(GridCons *grid, FluxCons *fluxes,Parameters *params) {
     grid->cons = &grid->cons[grid->offset];
     grid->intenergy = &grid->intenergy[grid->offset];
 
-    grid->time = 0.;
+
 
     fluxes->UL_1 = (real *)malloc(sizeof(real)*ntot*nf);
     fluxes->UR_1 = (real *)malloc(sizeof(real)*ntot*nf);

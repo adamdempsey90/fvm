@@ -360,9 +360,14 @@ real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, Fl
 	cudaMalloc((void**)&dt_arr,sizeof(real)*blocks);
 	cudaCheckError();
 
+
+
    
     
     while (grid->time < end_time) { 
+    	/* Zero flux arrays */
+    	cudaMemset(d_F_1,0.,sizeof(real)*ntot*nf);
+    	cudaMemset(d_F_2,0.,sizeof(real)*ntot*nf);
         /* Advance by dt */
         algogas_single(dt, 
             d_cons,
@@ -497,6 +502,10 @@ real algogas_firststep(real dtout, int threads, int blocks, GridCons *grid, Flux
 
 	cudaMalloc((void**)&dt_arr,sizeof(real)*blocks);
 	cudaCheckError();
+
+	/* Zero flux arrays */
+	cudaMemset(d_F_1,0.,sizeof(real)*ntot*nf);
+	cudaMemset(d_F_2,0.,sizeof(real)*ntot*nf);
 
    
 

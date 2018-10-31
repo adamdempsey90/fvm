@@ -9,15 +9,19 @@
 
 #define TRUE 1
 #define FALSE 0
-#define real double 
+
 //#define ISFLOAT 
+#ifdef ISFLOAT
+  #define real float
+#else
+  #define real double
+#endif
+
 #define FLOATMAX 1e8
 #define PRESSUREFLOOR  1e-8
 #include "structs.h"
 #include "prototypes.h"
 
-#define NGHX1 3
-#define NGHX2 3
 
 //#define INDEX(i,j,k) ( (i) + (j)*size_x1 + (k)*size_x12)
 #define INDEX(i,j) ( (i) + (j)*size_x1)

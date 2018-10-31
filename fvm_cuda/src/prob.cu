@@ -1,194 +1,9 @@
-/* Plane-Parallel */
+/* Implosion */
 #include "defs.h"
 #include <time.h>
 #include "cuda_defs.h"
 
 
-
-
-const real cond = .01;
-const real F = 1.;
-const real Tlower = 1000.;
-const real Tupper =  100.;
-const real g_param = .1;
-
-
-__device__ real gravpot(real x, real y) {
-    return g_param*y;
-}
-
-__device__ real heatcond_func(real dens, real x1, real x2, real delad) {
-    return cond;
-}
-__device__ real thermal_diff(real dens, real x1, real x2, real delad) {
-    return heatcond_func(dens,x1,x2,delad)/dens/delad;
-}
-
-__device__ void fixed_temp_lower(int indxg, int i, int j, real *cons, real *intenergy, real *x1, real *x2, int nx1, int nx2, int ntot, int nf, int size_x1, int offset, real g, real time) {
-    /* Fixed temp with hydrostaic balance 
-     * 
-     * dP/dy = - d g
-     * rho*e = Cp*T*rho/gamma
-     * delT = -dT/dy *delad/g
-     * T = T0 +dT/dy (y-y0)
-     * P/P0 = (T/T0)^(1./delT)
-     * d/d0 = (T/T0)^(1./delT-1)
-     */
-    int n;
-    int indx_r = GINDEX(i,-j-1);
-    int indx = GINDEX(i,0); 
-    
-    real T0,P0,d0,delad, delT,temp;
-    delad = 1 - 1./g;
-
-    T0 = intenergy[indx] * g/cons[indx];
-    d0 = cons[indx];
-    P0 = d0*T0*delad;
-    real x0 = .5*(x2[0] + x2[-1]);
-    
-    
-    delT = (T0 - Tlower)/(x2[0]-x0);
-    temp = Tlower + delT * (x2[j] - x0);
-  //  printf("%lg %lg %lg %lg %lg %lg\n",T0,Tlower,delT,x2[j],x0,temp);
-    delT *= -delad/g_param;
-    
-    
-    cons[indxg] = d0* pow(temp/T0,1./delT-1);
-    intenergy[indxg] = temp*cons[indxg]/g;
-    /* Velocities are reflecting */
-    cons[indxg + 1*ntot] = cons[indx_r + 1*ntot] ; //* cons[indxg]/cons[indx_r];
-    cons[indxg + 2*ntot] = -cons[indx_r + 2*ntot]; // * cons[indxg]/cons[indx_r];
-    cons[indxg + 3*ntot] = cons[indx_r + 3*ntot] ; // * cons[indxg]/cons[indx_r];
-    
-    
-
-    
-
-    cons[indxg + 4*ntot] = intenergy[indxg]  + .5*(cons[indxg+1*ntot]*cons[indxg+1*ntot]
-    +cons[indxg + 2*ntot]*cons[indxg + 2*ntot]
-    +cons[indxg + 3*ntot]*cons[indxg + 3*ntot])/cons[indxg];
-    
-
-    /* outflow for scalars */
-    for(n=5;n<nf;n++) {
-        cons[indxg + n*ntot] = cons[indx + n*ntot];
-    }
-
-
-    return;
-}
-__device__ void fixed_temp_upper(int indxg, int i, int j, real *cons, real *intenergy, real *x1, real *x2, int nx1, int nx2, int ntot, int nf, int size_x1, int offset, real g, real time) {
-    /* Fixed temp with hydrostaic balance
-     *
-     * dP/dy = - d g
-     * rho*e = Cp*T*rho/gamma
-     * delT = -dT/dy *delad/g
-     * T = T0 +dT/dy (y-y0)
-     * P/P0 = (T/T0)^(1./delT)
-     * d/d0 = (T/T0)^(1./delT-1)
-     */
-    int n;
-    int indx_r = GINDEX(i,-j-1);
-    int indx = GINDEX(i,nx2-1);
-
-    real T0,P0,d0,delad, delT,temp;
-    delad = 1 - 1./g;
-
-    T0 = intenergy[indx] * g/cons[indx];
-    d0 = cons[indx];
-    P0 = d0*T0*delad;
-    real x0 = .5*(x2[nx2-1] + x2[nx2]);
-
-
-    delT = (Tupper - T0)/(x0-x2[nx2-1]);
-    temp = Tupper + delT * (x2[j] - x0);
-  //  printf("%lg %lg %lg %lg %lg %lg\n",T0,Tlower,delT,x2[j],x0,temp);
-    delT *= -delad/g_param;
-
-
-    cons[indxg] = d0* pow(temp/T0,1./delT-1);
-    intenergy[indxg] = temp*cons[indxg]/g;
-
-
-    /* Velocities are reflecting */
-    cons[indxg + 1*ntot] = cons[indx_r + 1*ntot] ; //* cons[indxg]/cons[indx_r];
-    cons[indxg + 2*ntot] = -cons[indx_r + 2*ntot]; // * cons[indxg]/cons[indx_r];
-    cons[indxg + 3*ntot] = cons[indx_r + 3*ntot] ; // * cons[indxg]/cons[indx_r];
-
-
-
-
-
-    cons[indxg + 4*ntot] = intenergy[indxg]  + .5*(cons[indxg+1*ntot]*cons[indxg+1*ntot]
-    +cons[indxg + 2*ntot]*cons[indxg + 2*ntot]
-    +cons[indxg + 3*ntot]*cons[indxg + 3*ntot])/cons[indxg];
-
-
-    /* outflow for scalars */
-    for(n=5;n<nf;n++) {
-        cons[indxg + n*ntot] = cons[indx + n*ntot];
-    }
-
-
-    return;
-}
-
-
-__device__ void fixed_flux_upper(int indxg, int i, int j, real *cons, real *intenergy, real *x1, real *x2, int nx1, int nx2, int ntot, int nf, int size_x1, int offset, real g, real time) {
-    /* Fixed heat flux with hydrostaic balance 
-     * Constant conductivity K.
-     * 
-     * F = -K dT/dy  
-     * dP/dy = - d g
-     * rho*e = Cp*T*rho/gamma
-     * delrad = F*delad/(K*g)
-     * T = T0 - F/K (y-y0)
-     * P/P0 = (T/T0)^(1./delrad)
-     * d/d0 = (T/T0)^(1./delrad-1)
-     */
-    int n;
-    int indx_r = GINDEX(i,nx2+ -(j-nx2)-1);
-    int indx = GINDEX(i,nx2-1);
-    real T0,P0,d0,delad, delT,temp;
-    delad = 1 - 1./g;
-    
-    T0 = intenergy[indx] * g/cons[indx];
-	d0 = cons[indx];
-	P0 = d0*T0*delad;
-	real hcond =  heatcond_func(d0, x1[i], x2[nx2-1], delad);
-    delT = -F/hcond;
-
-    temp = T0 + delT * (x2[j] - x2[nx2-1]);
-    delT *= -delad/g_param; // delrad
-
-
-
-    /* Velocities are reflecting */
-    cons[indxg + 1*ntot] = cons[indx_r + 1*ntot];
-    cons[indxg + 2*ntot] = -cons[indx_r + 2*ntot];
-    cons[indxg + 3*ntot] = cons[indx_r + 3*ntot];
-    
-    
-
-    cons[indxg] = d0* pow(temp/T0,1./delT-1);
-    intenergy[indxg] = temp*cons[indxg]/g;
-    
-
-    
-    
-    cons[indxg + 4*ntot] = intenergy[indxg]  + .5*(cons[indxg+1*ntot]*cons[indxg+1*ntot]
-    +cons[indxg + 2*ntot]*cons[indxg + 2*ntot]
-    +cons[indxg + 3*ntot]*cons[indxg + 3*ntot])/cons[indxg];
-    
-
-    /* outflow for scalars */
-    for(n=5;n<nf;n++) {
-        cons[indxg + n*ntot] = cons[indx + n*ntot];
-    }
-
-
-    return;
-}
 __global__ void boundary_kernel(real *cons, real *intenergy, real *x1, real *x2, int nx1, int nx2, int size_x1, int nf, int ntot, int offset, real g, real time) {
 
     int i,j,indxg;
@@ -198,22 +13,22 @@ __global__ void boundary_kernel(real *cons, real *intenergy, real *x1, real *x2,
         j -= NGHX2;
         if ((i>=-NGHX1)&&(i<0)&&(j>=-NGHX2)&&(j<nx2+NGHX2)) {
         /* Lower x1 */
-            periodic_boundary_x1_inner(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
+            outflow_boundary_x1_inner(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
 
         }
         else if ((j>=-NGHX2)&&(j<0)&&(i>=-NGHX1)&&(i<nx1+NGHX1)) {
         /* Lower x2 */
 
-            fixed_temp_lower(indxg,i,j,cons,intenergy,x1,x2,nx1,nx2,ntot,nf,size_x1,offset,g,time);
+            outflow_boundary_x2_inner(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
         }
         else if ((i>=nx1)&&(i<nx1+NGHX1)&&(j>=-NGHX2)&&(j<nx2+NGHX2))  {
         /* Upper x1 */
-            periodic_boundary_x1_outer(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
+            outflow_boundary_x1_outer(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
 
         }
         else if ((j>=nx2)&&(j<nx2+NGHX2)&&(i>=-NGHX1)&&(i<nx1+NGHX1)) {
         /* Upper x2 */
-            fixed_temp_upper(indxg,i,j,cons,intenergy,x1,x2,nx1,nx2,ntot,nf,size_x1,offset,g,time);
+            outflow_boundary_x2_outer(indxg,i,j,cons,intenergy,nx1,nx2,ntot,nf,size_x1,offset,g,time);
 
 
         }
@@ -323,7 +138,7 @@ void init_gas(GridCons *grid, Parameters *params) {
     real *intenergy = grid->intenergy; 
 
     real gamma = params->gamma;
-    real gamma_1 = gamma-1;
+    real gamma_1 = params->gamma_1;
     real pres, ke;
 
     real u1 = 0;
@@ -332,41 +147,49 @@ void init_gas(GridCons *grid, Parameters *params) {
     real norm;
     srand(time(NULL));
 
-    real delad = 1. - 1./gamma;
-    real delrad = F*delad/(cond*g_param);
-    real T0, P0, D0,temp;
-    D0 = 1.;
-    P0 = delad * D0*Tlower;
-    T0 = Tlower;
-    real delT;
-    
-    delT = (Tupper - Tlower)/(xm2[nx2]-xm2[0]);
 
-    printf("%lg %lg %lg %lg\n",delT,Tlower,Tupper, pow(Tupper/Tlower,1./delT-1));
     for(j=-NGHX2;j<nx2+NGHX2;j++) {
         for(i=-NGHX1;i<nx1+NGHX1;i++) {
             indx = INDEX(i,j); 
-            //indx = i + size_x1*j;
-
-            u2 = 0.; 
-            u1 = 0.;
+             /* Upper left */
+            if ((xm2[j+1]>.5)&&(xm1[i+1]<=.5)) {
+                pres = 1.;
+                rho[indx] = 2.;
+                u1 = 0;
+                u2 = -.3;
+                
+            }           
+            /* Lower left */
+            if ((xm2[j+1]<=.5)&&(xm1[i+1]<=.5)) {
+                pres =.4;
+                rho[indx] = 1.0625;
+                u1 = 0;
+                u2 = .2145;
+            }
+            /* Upper right */
+            if ((xm2[j+1]>.5)&&(xm1[i+1]>.5)) {
+                pres = 1.;
+                rho[indx] = 1.;
+                u1 = 0;
+                u2 = -.4;
+                
+            }
+            /* Lower right */
+            if ((xm2[j+1]<=.5)&&(xm1[i+1]>.5)) {
+                pres = .4;
+                rho[indx] = .5197;
+                u1 = 0.;
+                u2 = -1.1259;
+                
+            }
             
-
-            temp = Tlower + delT *x2[j];
-
-
-            pres = P0 *pow(temp/Tlower,1./delT*-g_param/delad);
-            rho[indx] = D0*pow(temp/Tlower,1./delT*-g_param/delad - 1.);
-            
-
-
             mx1[indx] = u1*rho[indx];
             mx2[indx] = u2*rho[indx];
             mx3[indx] = 0.;
 
             ke = mx1[indx]*mx1[indx] + mx2[indx]*mx2[indx] + mx3[indx]*mx3[indx];
-            ke /= 2.*rho[indx];
-            intenergy[indx] = temp *rho[indx]/ gamma; //pres/gamma_1;
+            ke /= 2*rho[indx];
+            intenergy[indx] = pres/gamma_1;
             energy[indx] = intenergy[indx] + ke;
             for(n=5;n<nf;n++) {
                 grid->cons[n*ntot+indx] = 0;
@@ -378,7 +201,6 @@ void init_gas(GridCons *grid, Parameters *params) {
 
         }
     }
-
 
     return;
 
