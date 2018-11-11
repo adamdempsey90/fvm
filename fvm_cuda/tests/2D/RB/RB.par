@@ -1,0 +1,24 @@
+# R12 problem
+nx1 = 64
+nx2 = 128
+gamma =  1.6666666667
+cfl = .2
+
+x1_min = 0.
+x1_max = 1.
+
+x2_min = 0.
+x2_max = 2.
+
+tend = 50
+Nout = 50 
+
+
+kappa = .01
+nu = .1
+g = .1
+Tlower = 1000.
+Tupper = 100.
+
+outputname = out/test
+

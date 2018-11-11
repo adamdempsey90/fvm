@@ -8,7 +8,7 @@ real algogas_firststep(real dtout, int threads, int blocks, GridCons *grid, Flux
 void output(int step, GridCons *grid, FluxCons *fluxes, Parameters *params);
 void read_restart(const char *fname, GridCons *grid, FluxCons *fluxes, Parameters *params);
 void allocate(GridCons *grid,FluxCons *fluxes, Parameters *params);
-void read_pars(Parameters *params, int argc, char *argv[]);
+void init_uniform_mesh(GridCons *grid, Parameters *params);
 }
 
 

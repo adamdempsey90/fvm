@@ -6,16 +6,16 @@
 __device__ __inline__ real slope_limiter(real slopeL, real slopeR) {
     if (fabs(slopeR) < PRESSUREFLOOR) return  SLOPETHETA;
     real r = slopeL/slopeR;
-    return fmaxf(0., fminf(fminf(SLOPETHETA*r, .5*(1+r)),SLOPETHETA));
+    return MAX2(0., MIN3(SLOPETHETA*r, .5*(1+r),SLOPETHETA));
 }
 
 
 __global__ void plm(real *cons, real *UL, real *UR, real *dx,
-        int dir1,int nx1, int nx2, int size_x1, 
+        int dir1,int nx1, int nx2, int nx3, int size_x1, int size_x12,
         int nf,int ntot, int offset, real g1, real dt) {
 
-    int i,j,n,indx,indxm,indxp;
-    int il, iu, jl, ju;
+    int i,j,k,n,indx,indxm,indxp;
+    int il, iu, jl, ju, kl, ku;
     real dL, uL, uL2,uL3,pL,eL,sL;
     real dC,uC,uC2,uC3,pC,eC,sC;
     real dR,uR,uR2,uR3,pR,eR,sR;
@@ -33,34 +33,43 @@ __global__ void plm(real *cons, real *UL, real *UR, real *dx,
 
     if (dir1 == 1) {
         il = -2; iu = nx1+2;
-        jl = -NGHX2;ju = nx2+NGHX2;
+        jl = -NGHX2; ju = nx2+NGHX2;
+        kl = -NGHX3; ku = nx3 + NGHX3;
     }
     else if (dir1 == 2) {
         il = -NGHX1; iu = nx1+NGHX1;
         jl = -2; ju = nx2+2;
+        kl = -NGHX3; ku = nx3 + NGHX3;
     }
     else {
-        printf("Direction can only be 1 or 2 in 2D!\n");
+    	il = -NGHX1; iu = nx1+NGHX1;
+		jl = -NGHX2; ju = nx2+NGHX2;
+		kl = -2; ku = nx3 + 2;
     }
     
     for(indx = blockIdx.x*blockDim.x + threadIdx.x; indx<ntot; indx+=blockDim.x*gridDim.x) {
-        j = indx/size_x1;
-        i = indx -size_x1*j - NGHX1;
-        j -= NGHX2;
-        if ((i>=il)&&(i<iu)&&(j>=jl)&&(j<ju)) {
+    	unpack_indices(indx,&i,&j,&k,size_x1,size_x12);
+        if ((i>=il)&&(i<iu)&&(j>=jl)&&(j<ju)&&(k>=kl)&&(k<ku)) {
             if (dir1 == 1) {
-                indxm = GINDEX(i-1,j);
-                indxp = GINDEX(i+1,j);
+                indxm = indx - 1 ; // (i-1,j,k)
+                indxp = indx + 1 ; // (i+1,j,k)
                 dxm = dx[i-1];
                 dxc = dx[i];
                 dxp = dx[i+1];
             }
-            else {
-                indxm = GINDEX(i,j-1);
-                indxp = GINDEX(i,j+1);
+            else if (dir1 == 2) {
+                indxm = indx - size_x1;
+                indxp = indx + size_x1;
                 dxm = dx[j-1];
                 dxc = dx[j];
                 dxp = dx[j+1];
+            }
+            else {
+            	indxm = indx - size_x12;
+            	indxp = indx + size_x12;
+            	dxm = dx[k-1];
+            	dxc = dx[k];
+            	dxp = dx[k+1];
             }
 #ifdef PCM
             for(n=0;n<nf;n++) {

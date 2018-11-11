@@ -1,0 +1,41 @@
+# R12 problem
+nx1 = 128
+nx2 = 128
+gamma = 1.4
+cfl = .2
+
+x1_min = 0.
+x1_max = 1.
+
+x2_min = 0.
+x2_max = 1.
+
+tend = .25
+Nout = 10 
+
+outputname = out/test
+
+# Riemann problem parameters 
+# Upper Left
+p_ul = 1.
+d_ul =1.
+u1_ul = .7276
+u2_ul = 0.
+
+# Lower left
+p_ll = 1.
+d_ll = .8
+u1_ll = 0.
+u2_ll = 0.
+
+# Upper right
+p_ur = .4
+d_ur = .5313
+u1_ur = 0. 
+u2_ur = 0.
+
+# Lower right
+p_lr = 1.
+d_lr =1.
+u1_lr = 0.
+u2_lr = .7276

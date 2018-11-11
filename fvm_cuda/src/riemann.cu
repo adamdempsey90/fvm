@@ -3,9 +3,9 @@
 
 
 __global__ void riemann_fluxes(real *UL, real *UR, real *F, 
-        int dir1,int nx1, int nx2, int size_x1, 
+        int dir1,int nx1, int nx2, int nx3, int size_x1, int size_x12,
         int nf,int ntot, int offset, real g) {
-    int i,j,n,indx;
+    int i,j,k,n,indx;
     real dL,uL,pL,eL,aL,uL2,uL3;
     real dR,uR,pR,eR,aR,uR2,uR3;
 #ifdef EXACT
@@ -22,7 +22,7 @@ __global__ void riemann_fluxes(real *UL, real *UR, real *F,
     real g4 = 2./(g+1);
     real g5 = g2/g3;
 
-    int il,iu,jl,ju;
+    int il,iu,jl,ju,kl,ku;
 
     int dir2, dir3; 
 
@@ -35,28 +35,29 @@ __global__ void riemann_fluxes(real *UL, real *UR, real *F,
 
     if (dir1 == 1) {
         il = -1; iu = nx1+1;
-        jl = -NGHX2;ju = nx2+NGHX2;
+        jl = -NGHX2; ju = nx2+NGHX2;
+        kl = -NGHX3; ku = nx3 + NGHX3;
     }
     else if (dir1 == 2) {
         il = -NGHX1; iu = nx1+NGHX1;
         jl = -1; ju = nx2+1;
+        kl = -NGHX3; ku = nx3 + NGHX3;
     }
     else {
-        printf("Direction can only be 1 or 2 in 2D!\n");
+    	il = -NGHX1; iu = nx1+NGHX1;
+    	jl = -NGHX2; ju = nx2+NGHX2;
+		kl = -1; ku = nx3 + 1;
     }
     for(indx = blockIdx.x*blockDim.x + threadIdx.x; indx<ntot; indx+=blockDim.x*gridDim.x) {
-        j = indx/size_x1;
-        i = indx -size_x1*j - NGHX1;
-        j -= NGHX2;
-        if ((i>=il)&&(i<iu)&&(j>=jl)&&(j<ju)) {
-
+    	unpack_indices(indx,&i,&j,&k,size_x1,size_x12);
+    	if ((i>=il)&&(i<iu)&&(j>=jl)&&(j<ju)&&(k>=kl)&&(k<ku))  {
             dL = UL[indx + 0*ntot];
             uL   = UL[indx + dir1*ntot]/dL;
             uL2  = UL[indx + dir2*ntot]/dL;
             uL3  = UL[indx + dir3*ntot]/dL;
             eL   = UL[indx + 4*ntot];
             pL   = (eL - .5*(uL*uL + uL2*uL2 + uL3*uL3)*dL)*g1;
-            aL   = sqrt(g*pL/dL);
+
 
             dR = UR[indx + 0*ntot];
             uR   = UR[indx + dir1*ntot]/dR;
@@ -64,13 +65,40 @@ __global__ void riemann_fluxes(real *UL, real *UR, real *F,
             uR3  = UR[indx + dir3*ntot]/dR;
             eR   = UR[indx + 4*ntot];
             pR   = (eR - .5*(uR*uR + uR2*uR2 + uR3*uR3)*dR)*g1;
-            aR   = sqrt(g*pR/dR);
+
 
             if (pL < PRESSUREFLOOR) pL = PRESSUREFLOOR;
             if (pR < PRESSUREFLOOR) pR = PRESSUREFLOOR;
 
-#ifdef HLLC
+            aL   = sqrt(g*pL/dL);
+            aR   = sqrt(g*pR/dR);
+#ifdef EXACT
+            use_left = exact_sample(dL,uL,pL,aL,
+                    dR,uR,pR,aR,
+                    &ds,&us,&ps,
+                    g,g1,g2,g3,g4,g5,0.,EXACT_TOL);
 
+            F[indx + 0*ntot] = ds*us;
+            F[indx + dir1*ntot] = ds*us*us + ps;
+            if (use_left) {
+                F[indx + dir2*ntot] = ds*us*uL2 ;
+                F[indx + dir3*ntot] = ds*us*uL3 ;
+                F[indx + 4*ntot] = us*( ps/g1 + .5*ds*(us*us + uL2*uL2 + uL3*uL3) + ps);
+                for(n=5;n<nf;n++) {
+                    F[indx + n*ntot] = ds*us*UL[indx + n*ntot]/dL;
+                }
+            }
+            else {
+                F[indx + dir2*ntot] = ds*us*uR2 ;
+                F[indx + dir3*ntot] = ds*us*uR3 ;
+                F[indx + 4*ntot] = us*( ps/g1 + .5*ds*(us*us + uR2*uR2 + uR3*uR3) + ps);
+                for(n=5;n<nf;n++) {
+                    F[indx + n*ntot] = ds*us*UR[indx + n*ntot]/dR;
+                }
+            }
+
+#endif
+#ifdef HLLC
             hllc(dL,uL,pL,aL,
                     dR,uR,pR,aR,
                     &SL,&SR,&Sstar,
@@ -137,32 +165,7 @@ __global__ void riemann_fluxes(real *UL, real *UR, real *F,
                 }
             }
 #endif
-#ifdef EXACT
-            use_left = exact_sample(dL,uL,pL,aL,
-                    dR,uR,pR,aR,
-                    &ds,&us,&ps,
-                    g,g1,g2,g3,g4,g5,0.,EXACT_TOL);
-            
-            F[indx + 0*ntot] = ds*us;
-            F[indx + dir1*ntot] = ds*us*us + ps;
-            if (use_left) {
-                F[indx + dir2*ntot] = ds*us*uL2 ;
-                F[indx + dir3*ntot] = ds*us*uL3 ;
-                F[indx + 4*ntot] = us*( ps/g1 + .5*ds*(us*us + uL2*uL2 + uL3*uL3) + ps);
-                for(n=5;n<nf;n++) {
-                    F[indx + n*ntot] = ds*us*UL[indx + n*ntot]/dL;
-                }
-            }
-            else {
-                F[indx + dir2*ntot] = ds*us*uR2 ;
-                F[indx + dir3*ntot] = ds*us*uR3 ;
-                F[indx + 4*ntot] = us*( ps/g1 + .5*ds*(us*us + uR2*uR2 + uR3*uR3) + ps);
-                for(n=5;n<nf;n++) {
-                    F[indx + n*ntot] = ds*us*UR[indx + n*ntot]/dR;
-                }
-            }
 
-#endif
 
             
         }

@@ -1,0 +1,16 @@
+nx1 = 1024
+gamma = 1.4
+cfl = .2
+x1_min = 0.
+x1_max = 1.
+tend = 2.
+Nout = 10
+outputname = out/test
+
+x0 = .5
+dL = 1.4
+pL = 1.
+uL = 0.
+dR = 1.
+pR = 1.
+uR = 0.

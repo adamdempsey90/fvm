@@ -1,0 +1,22 @@
+# Hydrostatic conducting solution
+nx1 = 64
+nx2 = 64
+gamma = 1.6666666667
+cfl = .2
+
+x1_min = 0.
+x1_max = 1.
+
+x2_min = 0.
+x2_max = 1.
+
+tend = 50.
+Nout = 10 
+
+kappa = .01
+flux = 1.
+Tlower = 1000.
+g = .1
+
+outputname = out/test
+

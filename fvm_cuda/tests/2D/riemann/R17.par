@@ -1,0 +1,41 @@
+# R17 problem
+nx1 = 128
+nx2 = 128
+gamma = 1.4
+cfl = .2
+
+x1_min = 0.
+x1_max = 1.
+
+x2_min = 0.
+x2_max = 1.
+
+tend = .3
+Nout = 10 
+
+outputname = out/test
+
+# Riemann problem parameters 
+# Upper Left
+p_ul = 1.
+d_ul = 2.
+u1_ul = 0.
+u2_ul = -.3
+
+# Lower left
+p_ll = .4
+d_ll = 1.0625
+u1_ll = 0.
+u2_ll = .2145
+
+# Upper right
+p_ur = 1.
+d_ur = 1.
+u1_ur = 0.
+u2_ur = -.4
+
+# Lower right
+p_lr = .4
+d_lr = .5197
+u1_lr = 0.
+u2_lr = -1.1259

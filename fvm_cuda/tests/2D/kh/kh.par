@@ -1,0 +1,17 @@
+# R12 problem
+nx1 = 256
+nx2 = 256
+gamma = 1.4
+cfl = .2
+
+x1_min = -.5
+x1_max = .5
+
+x2_min = -.5
+x2_max = .5
+
+tend = 5.
+Nout = 10 
+
+outputname = out/test
+

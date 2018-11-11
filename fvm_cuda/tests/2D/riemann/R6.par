@@ -1,0 +1,42 @@
+# R6 problem
+nx1 = 128
+nx2 = 128
+gamma = 1.4
+cfl = .2
+
+x1_min = 0.
+x1_max = 1.
+
+x2_min = 0.
+x2_max = 1.
+
+tend = .3
+Nout = 10 
+
+outputname = out/test
+
+
+# Riemann problem parameters 
+# Upper Left
+p_ul = 1.
+d_ul = 2.
+u1_ul = .75
+u2_ul = .5
+
+# Lower left
+p_ll = 1.
+d_ll = 1.
+u1_ll = -.75
+u2_ll = .5
+
+# Upper right
+p_ur = 1.
+d_ur = 1.
+u1_ur = .75 
+u2_ur = -.5
+
+# Lower right
+p_lr = 1.
+d_lr = 3.
+u1_lr = -.75
+u2_lr = -.5

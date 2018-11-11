@@ -1,0 +1,14 @@
+nx1 = 1024
+gamma = 1.66666667
+cfl = .2
+x1_min = -1
+x1_max = 1
+tend = 3.
+Nout = 10
+outputname = out/test
+
+
+tinit = 10.
+width = .1
+kappa = .01
+

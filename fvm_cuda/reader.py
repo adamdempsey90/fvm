@@ -2,8 +2,9 @@ import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
-class Sim2D():
-    def __init__(self,num,base='kh_',with_ghost=False):
+class Sim():
+    def __init__(self,num,base='test_',with_ghost=False,dims=2):
+
         with h5py.File(base + str(num) + '.h5','r') as file:
             f = file['/Data']
             self.time = float(f['time'][...])
@@ -17,49 +18,92 @@ class Sim2D():
             self.xc1 = .5*(self.xm1[1:] + self.xm1[:-1])
             self.dx1 = np.diff(self.xm1)
 
-            self.xm2 = f['xm2'][...]
-            nx2 = len(self.xm2) - 1 - 6
-            self.nx2 = nx2
-            if not with_ghost:
-                self.xm2 = self.xm1[3:-3]
-            self.xc2 = .5*(self.xm2[1:] + self.xm2[:-1])
-            self.dx2 = np.diff(self.xm2)
+            shape = (nx1 + 6,)
 
+            if dims > 1:
+                self.xm2 = f['xm2'][...]
+                nx2 = len(self.xm2) - 1 - 6
+                self.nx2 = nx2
+                if not with_ghost:
+                    self.xm2 = self.xm2[3:-3]
+                self.xc2 = .5*(self.xm2[1:] + self.xm2[:-1])
+                self.dx2 = np.diff(self.xm2)
+                shape = shape + (nx2+6,)
+
+            if dims > 2:
+                self.xm3 = f['xm3'][...]
+                nx3 = len(self.xm3) - 1 - 6
+                self.nx3 = nx3
+                if not with_ghost:
+                    self.xm3 = self.xm3[3:-3]
+                self.xc3 = .5*(self.xm3[1:] + self.xm3[:-1])
+                self.dx3 = np.diff(self.xm3)
+                shape = shape + (nx3+6,)
+
+            shape = tuple([x for x in shape[::-1]])
+            self.dims = dims
+            self.shape = shape
             self.gamma = float(f['Gamma'][...])
-            self.rho = f['Density'][...].reshape(nx2+6,nx1+6)
-            self.vx1 = f['Mx1'][...].reshape(nx2+6,nx1+6) / self.rho
-            self.vx2 = f['Mx2'][...].reshape(nx2+6,nx1+6) / self.rho
-            self.vx3 = f['Mx3'][...].reshape(nx2+6,nx1+6) / self.rho
-            self.energy = f['Energy'][...].reshape(nx2+6,nx1+6)
-            self.ke = .5*self.rho*(self.vx1**2 + self.vx2**2 + self.vx3**2)
-            self.intenergy = f['InternalEnergy'][...].reshape((nx2+6,nx1+6))
+            self.rho = f['Density'][...].reshape(*shape)
+            self.vx1 = f['Mx1'][...].reshape(*shape) / self.rho
+            self.ke = .5*self.rho*self.vx1**2
+            if dims > 1:
+                self.vx2 = f['Mx2'][...].reshape(*shape) / self.rho
+                self.ke += .5*self.rho*self.vx2**2
+            if dims > 2:
+                self.vx3 = f['Mx3'][...].reshape(*shape) / self.rho
+                self.ke += .5*self.rho*self.vx3**2
+
+            self.energy = f['Energy'][...].reshape(*shape)
+            self.intenergy = f['InternalEnergy'][...].reshape(*shape)
 
             try:
-                self.scalar = f['Scalar1'][...].reshape(nx2 + 6, nx1 +6) / self.rho
+                self.scalar = f['Scalar1'][...].reshape(*shape) / self.rho
             except:
                 pass
 
-            self.extent = (self.xm1.min(),self.xm1.max(),self.xm2.min(),
-                    self.xm2.max())
+            if dims == 1:
+                self.extent = (self.xm1.min(), self.xm1.max())
+            elif dims == 2:
+                self.extent = (self.xm1.min(),self.xm1.max(),self.xm2.min(),
+                        self.xm2.max())
 
         if not with_ghost:
-            self.rho = self.rho[3:-3,3:-3]
-            self.vx1 = self.vx1[3:-3,3:-3]
-            self.vx2 = self.vx2[3:-3,3:-3]
-            self.vx3 = self.vx3[3:-3,3:-3]
-            self.energy = self.energy[3:-3,3:-3]
-            self.ke = self.ke[3:-3,3:-3]
-            self.intenergy = self.intenergy[3:-3,3:-3]
-            try:
-                self.scalar = self.scalar[3:-3,3:-3]
-            except AttributeError:
-                pass
+            if dims == 1:
+                self.rho = self.rho[3:-3]
+                self.vx1 = self.vx1[3:-3]
+                if dims > 1:
+                    self.vx2 = self.vx2[3:-3]
+                if dims > 2:
+                    self.vx3 = self.vx3[3:-3]
+                self.energy = self.energy[3:-3]
+                self.ke = self.ke[3:-3]
+                self.intenergy = self.intenergy[3:-3]
+                try:
+                    self.scalar = self.scalar[3:-3]
+                except AttributeError:
+                    pass
+            elif dims == 1:
+                self.rho = self.rho[3:-3,3:-3]
+                self.vx1 = self.vx1[3:-3,3:-3]
+                if dims > 1:
+                    self.vx2 = self.vx2[3:-3,3:-3]
+                if dims > 2:
+                    self.vx3 = self.vx3[3:-3,3:-3]
+                self.energy = self.energy[3:-3,3:-3]
+                self.ke = self.ke[3:-3,3:-3]
+                self.intenergy = self.intenergy[3:-3,3:-3]
+                try:
+                    self.scalar = self.scalar[3:-3,3:-3]
+                except AttributeError:
+                    pass
         self.pres = (self.energy-self.ke)*(self.gamma-1)
         self.cs = np.sqrt(self.gamma*self.pres/self.rho)
         self.temp = self.intenergy*self.gamma/self.rho
         delad = 1. - 1./self.gamma
         self.entropy = np.log(self.temp * self.pres**(-delad))
-        self.vort = np.gradient(self.vx2,self.dx1[0],axis=1,edge_order=2) - np.gradient(self.vx1,self.dx2[0],axis=0,edge_order=2)
+        if dims > 1:
+            self.vort = np.gradient(self.vx2,self.dx1[0],axis=1,edge_order=2) - np.gradient(self.vx1,self.dx2[0],axis=0,edge_order=2)
         if self.nan_check():
             print('NaN detected!')
 
@@ -67,7 +111,29 @@ class Sim2D():
     def nan_check(self):
         func = lambda x: np.any(np.isnan(x))
         return func(self.vx1)|func(self.rho)|func(self.pres)|func(self.energy)
-    def plot(self,val='rho',func = None,norm=None, fig=None,ax=None,ylbl='',
+    def plot(self,**kargs):
+        if self.dims == 1:
+            return self.plot1D(**kargs)
+        elif self.dims == 2:
+            return self.plot2D(**kargs)
+
+    def plot1D(self,val='rho',func=None,shift=0,scale=1,fig=None,ax=None,ylbl='',**kargs):
+        first = ax is None
+        if first:
+            fig,ax=plt.subplots(figsize=(8,6))
+        if func is not None:
+            q = func(self)
+        else:
+            q = (getattr(self,val)-shift)/scale
+        line,=ax.plot(self.xc1,q,**kargs)
+
+        ax.set_ylabel(ylbl,fontsize=20)
+        ax.minorticks_on()
+        ax.tick_params(labelsize=20)
+        ax.text(.05,.05,'$t={:.2f}$'.format(self.time),transform=ax.transAxes,fontsize=20)
+        fig.tight_layout()
+        return fig,ax,line
+    def plot2D(self,val='rho',func = None,norm=None, shift=0,scale=1,fig=None,ax=None,ylbl='',
             cmap='viridis',conts=None,**kargs):
         first = ax is None
         if first:
@@ -75,10 +141,11 @@ class Sim2D():
         if func is not None:
             q = func(self)
         else:
-            q = getattr(self,val)
+            q = (getattr(self,val)-shift)/scale
+
         if norm is None:
             norm = colors.Normalize()
-        img = ax.imshow(q.T,origin='lower',extent=self.extent,norm=norm,cmap=cmap,**kargs)
+        img = ax.imshow(q,origin='lower',extent=self.extent,norm=norm,cmap=cmap,**kargs)
         if first:
             cb = _create_colorbar(ax,norm,cmap=cmap)
         else:
@@ -89,6 +156,7 @@ class Sim2D():
         ax.text(.05,.05,'$t={:.2f}$'.format(self.time),transform=ax.transAxes,fontsize=20)
         if conts is not None:
             cont = ax.contour(q,levels=conts,origin='lower',extent=self.extent,norm=norm,colors='k',**kargs)
+        fig.tight_layout()
         return fig,ax,cb,img
     def plotavg(self,val='rho',axis=1,func = None,norm=1,shift=0, fig=None,ax=None,ylbl='',**kargs):
         if ax is None:
@@ -176,13 +244,14 @@ def _create_colorbar(ax,norm,cax=None,log=False,cmap='viridis',**kargs):
     return cb
 
 class Animation():
-    def __init__(self,base='kh_',**kargs):
-        self.base = base
+    def __init__(self,sim_kargs={},**kargs):
+
+        self.sim_kargs = sim_kargs
         self.kargs = kargs
         self.fixbar=False
-        self.fig,self.ax,self.cb,self.img = Sim2D(0,base=base).plot(**kargs)
+        self.fig,self.ax,self.cb,self.img = Sim(0,**sim_kargs).plot(**kargs)
     def update(self,i):
-        fld = Sim2D(i,base=self.base)
+        fld = Sim(i,**self.sim_kargs)
         try:
             func =self.kargs['func']
             d = func(fld)
@@ -203,6 +272,37 @@ class Animation():
 
     def animate(self,irange,fixbar=False,fname='mov',frames=None):
         self.fixbar = fixbar
+        import matplotlib.animation as animation
+        frames = len(irange)
+        anim = animation.FuncAnimation(self.fig, self.update, frames=frames, repeat=False)
+        anim.save('{}.mp4'.format(fname), writer=animation.FFMpegWriter())
+
+
+
+class Animation1D():
+    def __init__(self,sim_kargs={},**kargs):
+
+        self.sim_kargs = sim_kargs
+        self.kargs = kargs
+        self.fig,self.ax,self.line = Sim(0,**sim_kargs).plot(**kargs)
+    def update(self,i):
+        fld = Sim(i,**self.sim_kargs)
+        try:
+            func =self.kargs['func']
+            d = func(fld)
+        except KeyError:
+            try:
+                val = self.kargs['val']
+            except KeyError:
+                val = 'rho'
+                self.kargs['val'] = 'rho'
+            d = getattr(fld,val)
+        self.line.set_ydata(d)
+        self.ax.texts[0].remove()
+        self.ax.text(.05,.05,'$t={:.2f}$'.format(fld.time),transform=self.ax.transAxes,fontsize=20)
+
+
+    def animate(self,irange,fname='mov',frames=None):
         import matplotlib.animation as animation
         frames = len(irange)
         anim = animation.FuncAnimation(self.fig, self.update, frames=frames, repeat=False)
