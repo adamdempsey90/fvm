@@ -17,6 +17,7 @@ class Sim():
                 self.xm1 = self.xm1[3:-3]
             self.xc1 = .5*(self.xm1[1:] + self.xm1[:-1])
             self.dx1 = np.diff(self.xm1)
+            self.Lx1 = self.xm1[-1]-self.xm1[0]
 
             shape = (nx1 + 6,)
 
@@ -29,6 +30,7 @@ class Sim():
                 self.xc2 = .5*(self.xm2[1:] + self.xm2[:-1])
                 self.dx2 = np.diff(self.xm2)
                 shape = shape + (nx2+6,)
+                self.Lx2 = self.xm2[-1]-self.xm2[0]
 
             if dims > 2:
                 self.xm3 = f['xm3'][...]
@@ -38,6 +40,7 @@ class Sim():
                     self.xm3 = self.xm3[3:-3]
                 self.xc3 = .5*(self.xm3[1:] + self.xm3[:-1])
                 self.dx3 = np.diff(self.xm3)
+                self.Lx3 = self.xm3[-1]-self.xm3[0]
                 shape = shape + (nx3+6,)
 
             shape = tuple([x for x in shape[::-1]])
@@ -137,7 +140,7 @@ class Sim():
             cmap='viridis',conts=None,**kargs):
         first = ax is None
         if first:
-            fig,ax=plt.subplots(figsize=(8,8))
+            fig,ax=plt.subplots(figsize=(4*self.Lx1/self.Lx2,4))
         if func is not None:
             q = func(self)
         else:
@@ -145,13 +148,13 @@ class Sim():
 
         if norm is None:
             norm = colors.Normalize()
-        img = ax.imshow(q,origin='lower',extent=self.extent,norm=norm,cmap=cmap,**kargs)
+        img = ax.imshow(q,origin='lower',extent=self.extent,norm=norm,cmap=cmap,aspect='equal',**kargs)
         if first:
             cb = _create_colorbar(ax,norm,cmap=cmap)
         else:
             cb = None
         ax.minorticks_on()
-        ax.set_aspect('equal')
+        #ax.set_aspect('equal')
         ax.tick_params(labelsize=20)
         ax.text(.05,.05,'$t={:.2f}$'.format(self.time),transform=ax.transAxes,fontsize=20)
         if conts is not None:
@@ -298,6 +301,8 @@ class Animation1D():
                 self.kargs['val'] = 'rho'
             d = getattr(fld,val)
         self.line.set_ydata(d)
+        self.ax.autoscale()
+        self.ax.relim()
         self.ax.texts[0].remove()
         self.ax.text(.05,.05,'$t={:.2f}$'.format(fld.time),transform=self.ax.transAxes,fontsize=20)
 

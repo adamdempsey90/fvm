@@ -1,0 +1,17 @@
+# Double mach reflection problem
+nx1 = 512
+nx2 = 128
+gamma = 1.4
+cfl = .2
+
+x1_min = 0.
+x1_max = 4.
+
+x2_min = 0.
+x2_max = 1.
+
+tend = .2
+Nout = 50 
+
+outputname = out/test
+
