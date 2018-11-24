@@ -1,24 +1,35 @@
-/* 2D Riemann problem problem */
+/* Implosion */
 #include "defs.h"
 #include <time.h>
 #include "cuda_defs.h"
 
+
+__device__ void x3_boundary_inner(int indxg, int i, int j,int k, real *cons, real *intenergy, real *x1, real *x2, real *x3, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time) {
+	reflecting_boundary_inner(3,indxg,i,j,k,cons,intenergy,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
+	return;
+}
+__device__ void x3_boundary_outer(int indxg, int i, int j,int k, real *cons, real *intenergy, real *x1, real *x2, real *x3, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time) {
+	reflecting_boundary_outer(3,indxg,i,j,k,cons,intenergy,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
+	return;
+}
 __device__ void x2_boundary_inner(int indxg, int i, int j,int k, real *cons, real *intenergy, real *x1, real *x2, real *x3, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time) {
-	outflow_boundary_inner(2,indxg,i,j,k,cons,intenergy,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
+	reflecting_boundary_inner(2,indxg,i,j,k,cons,intenergy,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
 	return;
 }
 __device__ void x2_boundary_outer(int indxg, int i, int j,int k, real *cons, real *intenergy, real *x1, real *x2, real *x3, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time) {
-	outflow_boundary_outer(2,indxg,i,j,k,cons,intenergy,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
+	reflecting_boundary_outer(2,indxg,i,j,k,cons,intenergy,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
 	return;
 }
 __device__ void x1_boundary_inner(int indxg, int i, int j,int k, real *cons, real *intenergy, real *x1, real *x2, real *x3, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time) {
-	outflow_boundary_inner(1,indxg,i,j,k,cons,intenergy,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
+	reflecting_boundary_inner(1,indxg,i,j,k,cons,intenergy,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
 	return;
 }
 __device__ void x1_boundary_outer(int indxg, int i, int j,int k, real *cons, real *intenergy, real *x1, real *x2, real *x3, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time) {
-	outflow_boundary_outer(1,indxg,i,j,k,cons,intenergy,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
+	reflecting_boundary_outer(1,indxg,i,j,k,cons,intenergy,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
 	return;
 }
+
+
 void scale_factors(real x1, real x2, real x3, real *h1, real *h2, real *h3) {
 	*h1 = 1.;
 	*h2 = 1.;
@@ -43,9 +54,10 @@ void init_gas(GridCons *grid, Parameters *params) {
     ntot = grid->ntot;
     nf = grid->nf;
 
-    real *xm1 = grid->xm1;
+    real *x1 = grid->xc1;
 
-	real *xm2 = grid->xm2;
+	real *x2 = grid->xc2;
+	real *x3 = grid->xc3;
 
 
 	real *rho       = &grid->cons[0*ntot];
@@ -69,38 +81,15 @@ void init_gas(GridCons *grid, Parameters *params) {
 		for(j=-NGHX2;j<nx2+NGHX2;j++) {
 			for(i=-NGHX1;i<nx1+NGHX1;i++) {
 				indx = INDEX(i,j,k);
-				/* Upper left */
-				if ((xm2[j+1]>.5)&&(xm1[i+1]<=.5)) {
-					pres = params->p_ul;
-					rho[indx] = params->d_ul;
-					u1 = params->u1_ul;
-					u2 = params->u2_ul;
 
-				}
-				/* Lower left */
-				if ((xm2[j+1]<=.5)&&(xm1[i+1]<=.5)) {
-					pres = params->p_ll;
-					rho[indx] = params->d_ll;
-					u1 = params->u1_ll;
-					u2 = params->u2_ll;
-
-				}
-				/* Upper right */
-				if ((xm2[j+1]>.5)&&(xm1[i+1]>.5)) {
-					pres = params->p_ur;
-					rho[indx] = params->d_ur;
-					u1 = params->u1_ur;
-					u2 = params->u2_ur;
-
-				}
-				/* Lower right */
-				if ((xm2[j+1]<=.5)&&(xm1[i+1]>.5)) {
-					pres = params->p_lr;
-					rho[indx] = params->d_lr;
-					u1 = params->u1_lr;
-					u2 = params->u2_lr;
-
-				}
+			    if (x2[j] <= .15 - x1[i] + 1e-8) {
+			        rho[indx] = .125;
+			        pres = .14;
+			    }
+			    else {
+			        rho[indx] = 1.;
+			        pres = 1.;
+			    }
 
 
 				mx1[indx] = u1*rho[indx];
@@ -112,7 +101,7 @@ void init_gas(GridCons *grid, Parameters *params) {
 				intenergy[indx] = pres/gamma_1;
 				energy[indx] = intenergy[indx] + ke;
 				for(n=5;n<nf;n++) {
-					grid->cons[n*ntot+indx] = 0.;
+					grid->cons[n*ntot+indx] = 0;
 				}
 
 			}

@@ -1,6 +1,6 @@
 #include "defs.h"
 extern void scale_factors(real x1, real x2, real x3, real *h1, real *h2, real *h3);
-void allocate(GridCons *grid, FluxCons *fluxes,Parameters *params) {
+void allocate(GridCons *grid,Parameters *params) {
     int nx1,nx2,nx3, ntot, nf, nscalars;
     int size_x1, size_x2, size_x3, size_x12;
 
@@ -11,7 +11,6 @@ void allocate(GridCons *grid, FluxCons *fluxes,Parameters *params) {
     nx1 = size_x1- 2*NGHX1;
     nx2 = size_x2- 2*NGHX2;
     nx3 = size_x3- 2*NGHX3;
-
 
     size_x12 = size_x1*size_x2;
     ntot = size_x1*size_x2*size_x3;
@@ -60,38 +59,16 @@ void allocate(GridCons *grid, FluxCons *fluxes,Parameters *params) {
     /* 3D arrays */
     grid->hfac  = (real *)malloc(sizeof(real)*ntot*3);
     grid->cons = (real *)malloc(sizeof(real)*ntot*nf);
+    grid->prim = (real *)malloc(sizeof(real)*ntot*nf);
     grid->intenergy  = (real *)malloc(sizeof(real)*ntot);
 
+    /* Offset arrays so that negative i,j,k correspond to ghost zones*/
     grid->hfac = &grid->hfac[grid->offset];
     grid->cons = &grid->cons[grid->offset];
+    grid->prim = &grid->prim[grid->offset];
     grid->intenergy = &grid->intenergy[grid->offset];
 
 
-
-    fluxes->UL_1 = (real *)malloc(sizeof(real)*ntot*nf);
-    fluxes->UR_1 = (real *)malloc(sizeof(real)*ntot*nf);
-    fluxes->Fstar_1 = (real *)malloc(sizeof(real)*ntot*nf);
-
-    fluxes->UL_1 = &fluxes->UL_1[grid->offset];
-    fluxes->UR_1 = &fluxes->UR_1[grid->offset];
-    fluxes->Fstar_1 = &fluxes->Fstar_1[grid->offset];
-
-    fluxes->UL_2 = (real *)malloc(sizeof(real)*ntot*nf);
-    fluxes->UR_2 = (real *)malloc(sizeof(real)*ntot*nf);
-    fluxes->Fstar_2 = (real *)malloc(sizeof(real)*ntot*nf);
-
-    fluxes->UL_2 = &fluxes->UL_2[grid->offset];
-    fluxes->UR_2 = &fluxes->UR_2[grid->offset];
-    fluxes->Fstar_2 = &fluxes->Fstar_2[grid->offset];
-
-
-    fluxes->UL_3 = (real *)malloc(sizeof(real)*ntot*nf);
-    fluxes->UR_3 = (real *)malloc(sizeof(real)*ntot*nf);
-    fluxes->Fstar_3 = (real *)malloc(sizeof(real)*ntot*nf);
-
-    fluxes->UL_3 = &fluxes->UL_3[grid->offset];
-    fluxes->UR_3 = &fluxes->UR_3[grid->offset];
-    fluxes->Fstar_3 = &fluxes->Fstar_3[grid->offset];
     return;
 
 }

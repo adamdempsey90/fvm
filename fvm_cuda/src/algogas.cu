@@ -491,7 +491,7 @@ void algogas_single(real dt,
     return;
 }
 
-real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, FluxCons *fluxes, Parameters *params) {
+real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, Parameters *params) {
     real end_time = grid->time + dtout;
     real dt_max;
 
@@ -499,6 +499,7 @@ real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, Fl
     int size_x1 = grid->size_x1;
     int size_x2 = grid->size_x2;
     int size_x3 = grid->size_x3;
+    int size_x12 = grid->size_x12;
     int nf = grid->nf;
     int offset = grid->offset;
 
@@ -637,8 +638,17 @@ real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, Fl
 
     }
 
+    /* Convert to prim */
+
+    cons_to_prim<<<threads,blocks>>>(d_cons,d_intenergy,d_UL_1,params->gamma-1,
+    	 grid->nx[0],grid->nx[1],grid->nx[2], size_x1, size_x12, ntot, offset, nf);
+    cudaCheckError();
+
     /* Copy to host */
 	cudaMemcpy(&grid->cons[-offset],d_cons,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
+    cudaCheckError();
+
+    cudaMemcpy(&grid->prim[-offset],d_UL_1,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
     cudaCheckError();
 
 	cudaMemcpy(&grid->intenergy[-offset],d_intenergy,sizeof(real)*ntot,cudaMemcpyDeviceToHost);
@@ -667,7 +677,7 @@ real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, Fl
 
     return dt;
 }
-real algogas_firststep(real dtout, int threads, int blocks, GridCons *grid, FluxCons *fluxes, Parameters *params) {
+real algogas_firststep(real dtout, int threads, int blocks, int restart, GridCons *grid, Parameters *params) {
     real end_time = grid->time + dtout;
     real dt_max,dt;
 	int ntot = grid->ntot;
@@ -829,15 +839,21 @@ real algogas_firststep(real dtout, int threads, int blocks, GridCons *grid, Flux
         grid,params);
     
     /* Copy results to host */
+    cons_to_prim<<<threads,blocks>>>(d_cons,d_intenergy,d_UL_1,params->gamma-1,
+    	 grid->nx[0],grid->nx[1],grid->nx[2], size_x1, grid->size_x12, ntot, offset, nf);
+    cudaCheckError();
+
+
 	cudaMemcpy(&grid->cons[-offset],d_cons,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
     cudaCheckError();
+
+    cudaMemcpy(&grid->prim[-offset],d_UL_1,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
+    cudaCheckError();
+
 
 	cudaMemcpy(&grid->intenergy[-offset],d_intenergy,sizeof(real)*ntot,cudaMemcpyDeviceToHost);
     cudaCheckError();
 
-//    FILE *f = fopen("out/ic1.dat","w");
-//    fwrite(&grid->cons[-grid->offset],sizeof(real),grid->size_x12,f);
-//    fclose(f);
 
     /* Free device arrays */
     cudaFree(d_cons); cudaCheckError();
@@ -973,11 +989,11 @@ __global__ void boundary_kernel(real *cons, real *intenergy, real *x1, real *x2,
 #ifdef DIMS3
         else if ((k>=-NGHX2)&&(k<0)&&(i>=-NGHX1)&&(i<nx1+NGHX1)&&(j>=-NGHX2)&&(j<nx2+NGHX2)) {
         /* Lower x3 */
-        	x3_boundary_inner(indxg,i,j,k,cons,intenergy,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
+        	x3_boundary_inner(indxg,i,j,k,cons,intenergy,x1,x2,x3,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
         }
         else if ((k>=nx3)&&(k<nx3+NGHX3)&&(i>=-NGHX1)&&(i<nx1+NGHX1)&&(j>=-NGHX2)&&(j<nx2+NGHX2)) {
         /* Upper x3 */
-            x3_boundary_outer(indxg,i,j,k,cons,intenergy,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
+            x3_boundary_outer(indxg,i,j,k,cons,intenergy,x1,x2,x3,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
         }
 #endif
     }

@@ -48,20 +48,19 @@ class Sim():
             self.shape = shape
             self.gamma = float(f['Gamma'][...])
             self.rho = f['Density'][...].reshape(*shape)
-            self.vx1 = f['Mx1'][...].reshape(*shape) / self.rho
+            self.pres = f['Pressure'][...].reshape(*shape)
+            self.vx1 = f['Vx1'][...].reshape(*shape)
             self.ke = .5*self.rho*self.vx1**2
             if dims > 1:
-                self.vx2 = f['Mx2'][...].reshape(*shape) / self.rho
+                self.vx2 = f['Vx2'][...].reshape(*shape)
                 self.ke += .5*self.rho*self.vx2**2
             if dims > 2:
-                self.vx3 = f['Mx3'][...].reshape(*shape) / self.rho
+                self.vx3 = f['Vx3'][...].reshape(*shape)
                 self.ke += .5*self.rho*self.vx3**2
 
-            self.energy = f['Energy'][...].reshape(*shape)
-            self.intenergy = f['InternalEnergy'][...].reshape(*shape)
 
             try:
-                self.scalar = f['Scalar1'][...].reshape(*shape) / self.rho
+                self.scalar = f['Scalar1'][...].reshape(*shape)
             except:
                 pass
 
@@ -74,33 +73,33 @@ class Sim():
         if not with_ghost:
             if dims == 1:
                 self.rho = self.rho[3:-3]
+                self.pres = self.pres[3:-3]
                 self.vx1 = self.vx1[3:-3]
                 if dims > 1:
                     self.vx2 = self.vx2[3:-3]
                 if dims > 2:
                     self.vx3 = self.vx3[3:-3]
-                self.energy = self.energy[3:-3]
                 self.ke = self.ke[3:-3]
-                self.intenergy = self.intenergy[3:-3]
                 try:
                     self.scalar = self.scalar[3:-3]
                 except AttributeError:
                     pass
-            elif dims == 1:
+            elif dims == 2:
                 self.rho = self.rho[3:-3,3:-3]
+                self.pres = self.pres[3:-3,3:-3]
                 self.vx1 = self.vx1[3:-3,3:-3]
                 if dims > 1:
                     self.vx2 = self.vx2[3:-3,3:-3]
                 if dims > 2:
                     self.vx3 = self.vx3[3:-3,3:-3]
-                self.energy = self.energy[3:-3,3:-3]
                 self.ke = self.ke[3:-3,3:-3]
-                self.intenergy = self.intenergy[3:-3,3:-3]
                 try:
                     self.scalar = self.scalar[3:-3,3:-3]
                 except AttributeError:
                     pass
-        self.pres = (self.energy-self.ke)*(self.gamma-1)
+
+        self.intenergy = self.pres/(self.gamma-1)
+        self.energy = self.ke + self.intenergy
         self.cs = np.sqrt(self.gamma*self.pres/self.rho)
         self.temp = self.intenergy*self.gamma/self.rho
         delad = 1. - 1./self.gamma

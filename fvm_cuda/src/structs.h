@@ -21,21 +21,6 @@ typedef struct GridCons {
     real *hfac;
     real *cons; 
     real *intenergy;
+    real *prim;
 
 } GridCons;
-
-typedef struct FluxCons {
-    real *UL_1;
-    real *UR_1;
-    real *Fstar_1;
-
-    real *UL_2;
-    real *UR_2;
-    real *Fstar_2;
-
-    real *UL_3;
-    real *UR_3;
-    real *Fstar_3;
-
-
-} FluxCons;

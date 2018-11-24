@@ -156,3 +156,54 @@ __global__ void transverse_update(real *UL_1, real *UL_2, real *UL_3,
     return;
 
 }
+
+__global__ void cons_to_prim(real *cons, real *intenergy, real *prim, real g1,
+        int nx1, int nx2, int nx3, int size_x1, int size_x12, int ntot, int offset, int nf) {
+    int i,j,k,n;
+    int indx;
+
+    for(indx = blockIdx.x*blockDim.x + threadIdx.x; indx<ntot; indx+=blockDim.x*gridDim.x) {
+    	unpack_indices(indx,&i,&j,&k,size_x1,size_x12);
+        if ((i>=-NGHX1)&&(i<nx1+NGHX1)&&(j>=-NGHX2)&&(j<nx2+NGHX2)&&(k>=-NGHX3)&&(k<nx3+NGHX3)) {
+
+        	prim[indx + 0 *ntot] = cons[indx + 0*ntot];
+        	prim[indx + 1 *ntot] = cons[indx + 1*ntot]/cons[indx];
+        	prim[indx + 2 *ntot] = cons[indx + 2*ntot]/cons[indx];
+        	prim[indx + 3 *ntot] = cons[indx + 3*ntot]/cons[indx];
+        	prim[indx + 4 *ntot] = intenergy[indx] * g1;
+        	for(n=5;n<nf;n++) prim[indx + n*ntot] = cons[indx + n*ntot]/cons[indx];
+
+
+
+        }
+    }
+    return;
+
+}
+__global__ void prim_to_cons(real *cons, real *intenergy, real *prim, real g1,
+        int nx1, int nx2, int nx3, int size_x1, int size_x12, int ntot, int offset, int nf) {
+    int i,j,k,n;
+    int indx;
+
+    for(indx = blockIdx.x*blockDim.x + threadIdx.x; indx<ntot; indx+=blockDim.x*gridDim.x) {
+    	unpack_indices(indx,&i,&j,&k,size_x1,size_x12);
+        if ((i>=-NGHX1)&&(i<nx1+NGHX1)&&(j>=-NGHX2)&&(j<nx2+NGHX2)&&(k>=-NGHX3)&&(k<nx3+NGHX3)) {
+
+        	cons[indx + 0 *ntot] = prim[indx + 0*ntot];
+        	cons[indx + 1 *ntot] = prim[indx + 1*ntot]*prim[indx];
+        	cons[indx + 2 *ntot] = prim[indx + 2*ntot]*prim[indx];
+        	cons[indx + 3 *ntot] = prim[indx + 3*ntot]*prim[indx];
+        	intenergy[indx     ]      = prim[indx + 4*ntot]/g1;
+        	cons[indx + 4 *ntot] = intenergy[indx] + .5*prim[indx]*(prim[indx + 1*ntot]*prim[indx + 1*ntot]
+        	                                                      + prim[indx + 2*ntot]*prim[indx + 2*ntot]
+        	                                                      + prim[indx + 3*ntot]*prim[indx + 3*ntot]);
+        	for(n=5;n<nf;n++) cons[indx + n*ntot] = prim[indx + n*ntot]*prim[indx];
+
+
+
+        }
+    }
+    return;
+
+}
+

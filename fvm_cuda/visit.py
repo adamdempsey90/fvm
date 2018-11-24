@@ -8,16 +8,16 @@ def make_xml(flist,nlist,times,size,attrs):
     </Topology>""".format(*[i+1 for i in size])
 
     geometry="""<Geometry GeometryType="VXVYVZ">
-            <DataItem Name="xm1" Dimensions="{:d}" NumberType="Float" Precision="8" Format="HDF">
+            <DataItem Name="xm3" Dimensions="{:d}" NumberType="Float" Precision="8" Format="HDF">
                 {name}:/Data/xm1/
             </DataItem>
             <DataItem Name="xm2" Dimensions="{:d}" NumberType="Float" Precision="8" Format="HDF">
                 {name}:/Data/xm2/
             </DataItem>
-            <DataItem Name="xm3" Dimensions="{:d}" NumberType="Float" Precision="8" Format="HDF">
+            <DataItem Name="xm1" Dimensions="{:d}" NumberType="Float" Precision="8" Format="HDF">
                 {name}:/Data/xm3/
             </DataItem>
-          </Geometry>""".format(*[i+1 for i in size], name=flist[0])
+          </Geometry>""".format(*[i+1 for i in size[::-1]], name=flist[0])
 
     grids = ''.join([grid_block(f,n,t,size,attrs) for f,n,t in zip(flist,nlist,times)])
 
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     parser.add_argument('-base',type=str,default='out/test',help='Base file name')
     parser.add_argument('-n',type=list,default=[0,10],help='Output range')
     parser.add_argument('-t',type=list,default=[0,10],help='Time range')
-    parser.add_argument('-attrs',type=list,default=['Density','InternalEnergy','Mx1','Mx2','Mx3'],help='Attributes to load')
+    parser.add_argument('-attrs',type=list,default=['Density','Pressure','Vx1','Vx2','Vx3'],help='Attributes to load')
 
     args = vars(parser.parse_args())
 
@@ -111,10 +111,12 @@ if __name__ == "__main__":
     flist = ['{}_{:d}.h5'.format(base,i) for i in nlist]
     with h5py.File(dir + flist[0],'r') as f:
         dims = f['Data/Density'][...].shape
+        dims = tuple([i for i in dims[::-1]])
 
+    print('Compling ', attrs)
     lines = make_xml(flist,nlist,tlist,dims,attrs)
     outfile = dir + '{}.xdmf'.format(base)
     print("Saving to {}".format(outfile))
-    with open(base,'w') as f:
+    with open(outfile,'w') as f:
         f.write(lines)
 

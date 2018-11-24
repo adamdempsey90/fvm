@@ -42,7 +42,10 @@ __global__ void transverse_update(real *UL_1, real *UL_2, real *UL_3,
         real *UR_1, real *UR_2, real *UR_3,
         real *F_1, real *F_2, real *F_3, real *dx1, real *dx2, real *dx3, real dt,
         int nx1, int nx2, int nx3, int size_x1, int size_x12, int ntot, int offset, int nf);
-
+__global__ void cons_to_prim(real *cons, real *intenergy, real *prim, real g1,
+        int nx1, int nx2, int nx3, int size_x1, int size_x12, int ntot, int offset, int nf);
+__global__ void prim_to_cons(real *cons, real *intenergy, real *prim, real g1,
+        int nx1, int nx2, int nx3, int size_x1, int size_x12, int ntot, int offset, int nf);
 
 /* riemann.cu */
 __global__ void riemann_fluxes(real *UL, real *UR, real *F, 

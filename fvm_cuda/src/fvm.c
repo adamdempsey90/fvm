@@ -6,6 +6,8 @@
 #define MINBLOCKS 32
 #define MAXTHREADS 256
 void default_pars(Parameters *params);
+void cons_to_prim_grid(GridCons *grid, Parameters *params);
+
 
 void set_threads_blocks(int n, int *threads, int *blocks) {
 	*threads = MAXTHREADS;
@@ -29,6 +31,8 @@ void set_threads_blocks(int n, int *threads, int *blocks) {
 
 }
 
+
+
 int main(int argc, char *argv[]) {
     int Nout, step;
     int threads, blocks;
@@ -40,7 +44,6 @@ int main(int argc, char *argv[]) {
 
 
     GridCons *grid = (GridCons *)malloc(sizeof(GridCons));
-    FluxCons *fluxes = (FluxCons *)malloc(sizeof(FluxCons));
     Parameters *params = (Parameters *)malloc(sizeof(Parameters));
     
     /* Set default parameters first */
@@ -119,16 +122,19 @@ int main(int argc, char *argv[]) {
 #ifdef VISCOSITY
     printf("Compiled with VISCOSITY\n");
 #endif
-    allocate(grid,fluxes,params);
+    allocate(grid,params);
     grid->time = 0.;
 
     init_mesh(grid,params);
 
     if (restart) {
-    	read_restart(restartfile,grid,fluxes,params);
+    	read_restart(restartfile,grid,params);
     }
     else {
     	init_gas(grid,params);
+    	cons_to_prim_grid(grid,params);
+
+
     }
 
     Nout = params->nout;
@@ -153,10 +159,10 @@ int main(int argc, char *argv[]) {
 #endif
 
 #ifndef PROF
-    output(step,grid,fluxes,params);
+    output(step,grid,params);
 #endif
     
-   dt_curr = algogas_firststep(params->tend,threads, blocks,grid, fluxes,params);
+   dt_curr = algogas_firststep(params->tend,threads, blocks,restart,grid,params);
 
     if (onestep) {
 #ifndef SILENT
@@ -167,7 +173,7 @@ int main(int argc, char *argv[]) {
         printf("Output %d at t=%.2e\n",step,grid->time);
 #endif
 #ifndef PROF
-        output(step,grid,fluxes,params); // Output 
+        output(step,grid,params); // Output
 #endif
     }
     else {
@@ -176,12 +182,12 @@ int main(int argc, char *argv[]) {
 #endif
         for(step=1;step<=Nout;step++) {
             // Evolve for a time of dtout
-            dt_curr = algogas_dt(dt_curr, dtout,threads, blocks,grid,fluxes,params); 
+            dt_curr = algogas_dt(dt_curr, dtout,threads, blocks,grid,params);
 #ifndef SILENT
             printf("Output %d at t=%.2e\n",step,grid->time);
 #endif
 #ifndef PROF
-            output(step,grid,fluxes,params); // Output 
+            output(step,grid,params); // Output
 #endif
         }
     }
@@ -222,3 +228,22 @@ void default_pars(Parameters *params) {
 
 }
 
+void cons_to_prim_grid(GridCons *grid, Parameters *params) {
+	int indx,n;
+	int ntot = grid->ntot;
+	int nf = grid->nf;
+	int offset = grid->offset;
+	real *cons = grid->cons;
+	real *prim = grid->prim;
+	real *intenergy = grid->intenergy;
+	real g1 = params->gamma-1;
+	for(indx=-offset;indx<ntot-offset;indx++) {
+		prim[indx] =cons[indx];
+		prim[indx + 1*ntot] = cons[indx + 1*ntot]/cons[indx];
+		prim[indx + 2*ntot] = cons[indx + 2*ntot]/cons[indx];
+		prim[indx + 3*ntot] = cons[indx + 3*ntot]/cons[indx];
+		prim[indx + 4*ntot] = intenergy[indx] * g1;
+		for(n=5;n<nf;n++) prim[indx + n*ntot] = cons[indx + n*ntot]/cons[indx];
+	}
+	return;
+}
