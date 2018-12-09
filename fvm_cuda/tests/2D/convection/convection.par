@@ -1,0 +1,27 @@
+# Hydrostatic conducting solution
+nx1 = 32
+nx2 = 128
+gamma = 1.6666666667
+cfl = .2
+
+x1_min = -.5
+x1_max = .5
+
+x2_min = -1
+x2_max = 2.
+
+tend = 50.
+Nout = 50 
+
+Ftot = 1e-1
+xi = 3.
+delta = 1e-2
+loz = .1
+slope = 3.5
+nu = .1
+g = 1.
+minF = .1
+ksmooth = .05
+
+outputname = out/test
+
