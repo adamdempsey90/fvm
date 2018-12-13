@@ -24,8 +24,8 @@ __device__ __managed__ real g_param = .1;
 __device__ __managed__ real minF = .1;
 __device__ __managed__ real ksmooth = .1;
 
-real Tfunc(real z);
-real Pfunc(real z);
+__host__ __device__ real Tfunc(real z);
+__host__ __device__ real Pfunc(real z);
 __host__ __device__ static real eix(const real x);
 __host__ __device__ static real e1xb(const real x);
 
@@ -61,6 +61,7 @@ __host__ __device__ real thermal_diff(real dens, real x1, real x2, real x3,real 
 __device__ void fixed_temp_lower(int indxg, int i, int j, int k, real *cons, real *intenergy, real *x1, real *x2, real *x3,
 		int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time) {
     /* Fixed temp with hydrostatic balance
+     * This additionally keeps a fixed radiative flux through the boundary
      * 
      * dP/dy = - d g
      * rho*e = Cp*T*rho/gamma
@@ -72,28 +73,26 @@ __device__ void fixed_temp_lower(int indxg, int i, int j, int k, real *cons, rea
     int n;
     int indx_r = GINDEX(i,-j-1,k);
     int indx = GINDEX(i,0,k);
-    
-    real Ts,Ds, Ps,Tval,Dval,Pval,delT;
 
-    Pval = intenergy[indx_r] *(g-1);
-    Dval = cons[indx_r];
+    real Ts,Ds, Ps,Tval,Dval,Pval,delT,f,kap;
 
+//    Pval = intenergy[indx_r] *(g-1);
+//    Dval = cons[indx_r];
+//
     Ts = intenergy[indx] * g/cons[indx];
 	Ds = cons[indx];
 	Ps = Ts*delad*Ds;
 
     real x0 = .5*(x2[0] + x2[-1]);
-    
-    
-    delT = (Ts - Tbot)/(x2[0]-x0);
 
-    Tval = 2*Tbot - Pval/(delad*Dval);
-//temp = Tbot + delT * (x2[j] - x0);
-    printf("(%d,%d) %lg %lg %lg %lg %lg %lg\n",i,j,Pval,Dval,Pval,Ts,Ds,Ps);
-    delT *= -delad/g_param;
-    
-    
-    
+    kap = heatcond_func(cons[indx], x1[i],x0,0.,delad);
+    f = -kap*(Ts - Tbot)/(x2[0]-x0) / Ftot;
+    Tval = Tbot + f*log((1-slope*x2[j])/(1 + slope))/slope;
+
+    Pval = Pbot*exp(1./delad * (1 + slope)*exp(-slope/f*Tbot)*(eix(slope/f*Tval)-eix(slope/f*Tbot)));
+    //printf("%d\t%lg\t%lg\t%lg\t%lg\t%lg\t%lg\t%lg\t%lg\t%lg\n",j,kap,Ts,Tbot,Tval,Tfunc(x2[j]),Pval,f,Ts,Tfunc(x2[0]));
+    cons[indxg] =  Pval/(delad*Tval);
+    intenergy[indxg] = Pval/(g-1);
 
 
     /* Velocities are reflecting */
@@ -103,13 +102,12 @@ __device__ void fixed_temp_lower(int indxg, int i, int j, int k, real *cons, rea
     
     
 
-    cons[indxg] = Ds* pow(Tval/Ts,1./delT-1);
-    intenergy[indxg] = Tval*cons[indxg]/g;
-    
+//    cons[indxg] = Ds* pow(Tval/Ts,1./delT-1);
+//
     cons[indxg + 4*ntot] = intenergy[indxg]  + .5*(cons[indxg+1*ntot]*cons[indxg+1*ntot]
     +cons[indxg + 2*ntot]*cons[indxg + 2*ntot]
     +cons[indxg + 3*ntot]*cons[indxg + 3*ntot])/cons[indxg];
-    
+
 
     /* outflow for scalars */
     for(n=5;n<nf;n++) {
@@ -122,8 +120,8 @@ __device__ void fixed_temp_lower(int indxg, int i, int j, int k, real *cons, rea
 __device__ void fixed_flux_upper(int indxg, int i, int j, int k, real *cons, real *intenergy, real *x1, real *x2, real *x3,
 		int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time) {
     /* Fixed heat flux with hydrostaic balance 
-     * Constant conductivity K.
      * 
+     *
      * F = -K dT/dy  
      * dP/dy = - d g
      * rho*e = Cp*T*rho/gamma
@@ -174,7 +172,7 @@ __device__ void fixed_flux_upper(int indxg, int i, int j, int k, real *cons, rea
     return;
 }
 __device__ void x2_boundary_inner(int indxg, int i, int j,int k, real *cons, real *intenergy, real *x1, real *x2, real *x3, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time) {
-	//fixed_temp_lower(indxg,i,j,k,cons,intenergy,x1,x2,x3,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
+	fixed_temp_lower(indxg,i,j,k,cons,intenergy,x1,x2,x3,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
 	return;
 }
 __device__ void x2_boundary_outer(int indxg, int i, int j,int k, real *cons, real *intenergy, real *x1, real *x2, real *x3, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time) {
@@ -228,7 +226,8 @@ void init_gas(GridCons *grid, Parameters *params) {
 
 	real *x2 = grid->xc2;
 	real *x2m = grid->xm2;
-
+	real *dx1 = grid->dx1;
+	real *dx2 = grid->dx2;
 
 	real *rho       = &grid->cons[0*ntot];
 	real *mx1       = &grid->cons[1*ntot];
@@ -258,7 +257,7 @@ void init_gas(GridCons *grid, Parameters *params) {
 	Tbot = Tfunc(-1.0);
 	Pbot = Pfunc(-1.0);
 
-	printf("Delad:%lg\nDelta:%lg\nTtop:%lg\nPtop:%lg\nT1:%lg\nT0:%lg\nP1:%lg\nP0:%lg\n",delad,delta,Ttop,Ptop,T1,T0,P1,P0);
+	printf("Delad:%lg\nDelta:%lg\nTtop:%lg\nPtop:%lg\nTbot:%lg\nPbot:%lg\nT1:%lg\nT0:%lg\nP1:%lg\nP0:%lg\n",delad,delta,Ttop,Ptop,Tbot,Pbot,T1,T0,P1,P0);
 
 	real norm;
 	srand(time(NULL));
@@ -295,12 +294,48 @@ void init_gas(GridCons *grid, Parameters *params) {
 					grid->cons[n*ntot+indx] = 0;
 				}
 
-
-
-
 			}
         }
     }
+    real s1 = 0;
+    real s2 = 0;
+    real tot = 0;
+    k = 0;
+    for(j=-NGHX2;j<nx2+NGHX2;j++) {
+    	s1 = 0;
+    	s2 = 0;
+    	for(i=-NGHX1;i<nx1+NGHX1;i++) {
+    		indx = INDEX(i,j,k);
+    		s1 += dx1[i]*mx1[indx];
+    		s2 += dx1[i]*mx2[indx];
+    		tot += dx1[i];
+    	}
+    	s1 /= tot;
+    	s2 /= tot;
+    	for(i=-NGHX1;i<nx1+NGHX1;i++) {
+    		indx = INDEX(i,j,k);
+    		mx1[indx] -= s1;
+    		mx2[indx] -= s2;
+    	}
+    }
+    for(i=-NGHX1;i<nx1+NGHX1;i++) {
+    	s1 = 0;
+    	s2 = 0;
+    	for(j=-NGHX2;j<nx2+NGHX2;j++) {
+    		indx = INDEX(i,j,k);
+    		s1 += dx2[j]*mx1[indx];
+    		s2 += dx2[j]*mx2[indx];
+    		tot += dx2[j];
+    	}
+    	s1 /= tot;
+    	s2 /= tot;
+    	for(j=-NGHX2;j<nx2+NGHX2;j++) {
+    		indx = INDEX(i,j,k);
+    		mx1[indx] -= s1;
+    		mx2[indx] -= s2;
+    	}
+    }
+
 //    FILE *f = fopen("out/kappa.dat","w");
 //    for(j=-NGHX2;j<nx2+NGHX2;j++) fprintf(f,"%.8e\t%.8e\t%.8e\t%.8e\n",x2m[j],heatcond_func(1.,0.,x2m[j],0.,delad),Tfunc(x2m[j]),Pfunc(x2m[j]));
 //    fclose(f);
@@ -381,7 +416,7 @@ __host__ __device__ static real eix(const real x) {
 }
 
 
-real Tfunc(real z) {
+__host__ __device__ real Tfunc(real z) {
 
     if (z < -loz) {
         return T0 + log((1-slope*z)/(1+slope*loz))/slope;
@@ -393,7 +428,7 @@ real Tfunc(real z) {
 
     return Ttop - log((1-slope*(1-z))/(1+slope))/slope;
 }
-real Pfunc(real z) {
+__host__ __device__ real Pfunc(real z) {
 	real Tval = Tfunc(z);
     if (z < -loz) {
         return P0*exp((1+slope*loz)/delad *exp(-slope*T0)*(eix(slope*Tval)-eix(slope*T0)));

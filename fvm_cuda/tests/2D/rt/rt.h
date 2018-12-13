@@ -9,6 +9,7 @@
 #define PLM
 
 
+#define VISCOSITY
 #define POTENTIAL
 //#define CONDUCTION
 

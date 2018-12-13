@@ -3,10 +3,10 @@
 
 
 #ifdef CONDUCTION
-extern __device__ real thermal_diff(real rho, real x1, real x2, real x3, real delad);
+extern __host__ __device__ real thermal_diff(real rho, real x1, real x2, real x3, real delad);
 #endif
 #ifdef VISCOSITY
-extern __device__ real kinematic_viscosity(real x1, real x2, real x3);
+extern __host__ __device__ real kinematic_viscosity(real x1, real x2, real x3);
 #endif
 
 __inline__ __device__ real warpReduceMin(real val) {

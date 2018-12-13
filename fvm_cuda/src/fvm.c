@@ -38,6 +38,7 @@ int main(int argc, char *argv[]) {
     int threads, blocks;
     int restart = FALSE;
     int onestep = FALSE;
+    int nostep = FALSE;
     char parfile[512];
     char restartfile[512];
 
@@ -76,6 +77,15 @@ int main(int argc, char *argv[]) {
                     /* When -S flag is present we just 
                      * take one step and exit
                      */
+                    onestep = TRUE;
+                    argc -= 1;
+                    argv = &argv[1];
+                }
+                else if ( (char)tolower(*(argv[0]+1)) == 'b' ){
+                    /* When -B flag is present we just
+                     * set boundary conditions and exit
+                     */
+                    nostep = TRUE;
                     onestep = TRUE;
                     argc -= 1;
                     argv = &argv[1];
@@ -162,7 +172,7 @@ int main(int argc, char *argv[]) {
     output(step,grid,params);
 #endif
     
-   dt_curr = algogas_firststep(params->tend,threads, blocks,restart,grid,params);
+   dt_curr = algogas_firststep(params->tend,threads, blocks,restart,nostep,grid,params);
 
     if (onestep) {
 #ifndef SILENT

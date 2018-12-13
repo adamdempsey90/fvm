@@ -11,3 +11,5 @@
 run
 *.out
 *.dvi
+fvmcuda
+*.mp4

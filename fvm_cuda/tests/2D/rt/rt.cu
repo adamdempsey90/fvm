@@ -5,7 +5,12 @@
 
 
 __device__ __managed__ real g_param = .1;
+__device__ __managed__ real nu = .01;
 
+
+__device__ real kinematic_viscosity(real x1, real x2, real x3) {
+	return nu;
+}
 
 __device__ real gravpot(real x, real y, real z) {
     return g_param*y;
@@ -103,6 +108,7 @@ void init_gas(GridCons *grid, Parameters *params) {
     nf = grid->nf;
 
     g_param = params->g;
+    nu = params->nu;
 
     real *x1 = grid->xc1;
 
@@ -125,6 +131,7 @@ void init_gas(GridCons *grid, Parameters *params) {
     real u2 = 0;
     real u3 = 0;
     real pres = 1.;
+    real amp = params->amp;
 
 
 
@@ -146,8 +153,8 @@ void init_gas(GridCons *grid, Parameters *params) {
 				}
 				*/
 
-				if (xm2[j] == 0) {
-					u2 = 0.01*cos(2*M_PI*x1[i]);
+				if (fabs(xm2[j]) <=1e-8) {
+					u2 = amp*cos(2*M_PI*x1[i]);
 				}
 
 

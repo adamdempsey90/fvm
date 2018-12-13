@@ -136,10 +136,13 @@ class Sim():
         fig.tight_layout()
         return fig,ax,line
     def plot2D(self,val='rho',func = None,norm=None, shift=0,scale=1,fig=None,ax=None,ylbl='',
-            cmap='viridis',conts=None,**kargs):
+            cmap='viridis',conts=None,figsize=None,**kargs):
         first = ax is None
         if first:
-            fig,ax=plt.subplots(figsize=(4*self.Lx1/self.Lx2,4))
+            if figsize is None:
+                fig,ax=plt.subplots(figsize=(4*self.Lx2/self.Lx1,4))
+            else:
+                fig,ax=plt.subplots(figsize=figsize)
         if func is not None:
             q = func(self)
         else:

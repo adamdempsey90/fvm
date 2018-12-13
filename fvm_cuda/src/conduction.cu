@@ -4,7 +4,7 @@
 
 #ifdef CONDUCTION
 
-extern __device__ real heatcond_func(real dens, real x1, real x2, real x3, real delad);
+extern __host__ __device__ real heatcond_func(real dens, real x1, real x2, real x3, real delad);
 
 __global__ void conduction_flux(real *cons, real *intenergy, real *F_1, real *F_2, real *F_3,
         real *dx1, real *dx2, real *dx3, real *x1, real *x2, real *x3, real g,

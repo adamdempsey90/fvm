@@ -3,7 +3,7 @@
 
 #ifdef VISCOSITY
 
-extern __device__ real kinematic_viscosity(real x1, real x2, real x3);
+extern __host__ __device__ real kinematic_viscosity(real x1, real x2, real x3);
 
 __global__ void compute_divergence(real *cons, real *vel, 
         real *dx1, real *dx2, real *dx3, real *x1, real *x2, real *x3,

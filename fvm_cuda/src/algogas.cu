@@ -677,7 +677,7 @@ real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, Pa
 
     return dt;
 }
-real algogas_firststep(real dtout, int threads, int blocks, int restart, GridCons *grid, Parameters *params) {
+real algogas_firststep(real dtout, int threads, int blocks, int restart, int nostep, GridCons *grid, Parameters *params) {
     real end_time = grid->time + dtout;
     real dt_max,dt;
 	int ntot = grid->ntot;
@@ -795,49 +795,52 @@ real algogas_firststep(real dtout, int threads, int blocks, int restart, GridCon
         grid,params);
 
     /* Take one step */
+    if (!nostep) {
+		algogas_single(dt,
+			d_cons,
+			d_intenergy,
+			d_UL_1,
+			d_UR_1,
+			d_F_1,
+			d_UL_2,
+			d_UR_2,
+			d_F_2,
+			d_UL_3,
+			d_UR_3,
+			d_F_3,
+			d_dhalf,
+			d_dx1 + NGHX1,
+			d_dx2 + NGHX2,
+			d_dx3 + NGHX3,
+			d_x1 + NGHX1,
+			d_x2 + NGHX2,
+			d_x3 + NGHX3,
+			dt_arr,
+			blocks,
+			threads,
+			grid, params);
 
-    algogas_single(dt,
-        d_cons,
-        d_intenergy,
-        d_UL_1,
-        d_UR_1,
-        d_F_1,
-        d_UL_2,
-        d_UR_2,
-        d_F_2,
-        d_UL_3,
-        d_UR_3,
-        d_F_3,
-        d_dhalf,
-        d_dx1 + NGHX1,
-        d_dx2 + NGHX2,
-        d_dx3 + NGHX3,
-        d_x1 + NGHX1,
-        d_x2 + NGHX2,
-        d_x3 + NGHX3,
-        dt_arr,
-        blocks,
-        threads,
-        grid, params);
+		grid->time += dt;
+		/* Get new timestep */
+		dt_max = end_time - grid->time;
 
-    grid->time += dt;
-    /* Get new timestep */
-    dt_max = end_time - grid->time;
-
-    dt = set_bc_timestep(dt_max,
-        d_cons,
-        d_intenergy,
-        d_dx1 + NGHX1,
-        d_dx2 + NGHX2,
-        d_dx3 + NGHX3,
-        d_x1  + NGHX1,
-        d_x2  + NGHX2,
-        d_x3  + NGHX3,
-        dt_arr,
-        blocks,
-        threads,
-        grid,params);
-    
+		dt = set_bc_timestep(dt_max,
+			d_cons,
+			d_intenergy,
+			d_dx1 + NGHX1,
+			d_dx2 + NGHX2,
+			d_dx3 + NGHX3,
+			d_x1  + NGHX1,
+			d_x2  + NGHX2,
+			d_x3  + NGHX3,
+			dt_arr,
+			blocks,
+			threads,
+			grid,params);
+    }
+    else {
+    	grid->time += dt;
+    }
     /* Copy results to host */
     cons_to_prim<<<threads,blocks>>>(d_cons,d_intenergy,d_UL_1,params->gamma-1,
     	 grid->nx[0],grid->nx[1],grid->nx[2], size_x1, grid->size_x12, ntot, offset, nf);
@@ -907,11 +910,11 @@ real set_bc_timestep(real dt_max,
     real dt;
     real h_dt_arr[1024];
 
-    cudaMemcpy(&grid->cons[-offset],d_cons,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
-	cudaCheckError();
-
-	cudaMemcpy(&grid->intenergy[-offset],d_intenergy,sizeof(real)*ntot,cudaMemcpyDeviceToHost);
-	cudaCheckError();
+//    cudaMemcpy(&grid->cons[-offset],d_cons,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
+//	cudaCheckError();
+//
+//	cudaMemcpy(&grid->intenergy[-offset],d_intenergy,sizeof(real)*ntot,cudaMemcpyDeviceToHost);
+//	cudaCheckError();
 
 //	printf("%lg\n",dt);
     /* Calculate new timestep */
@@ -957,6 +960,8 @@ real set_bc_timestep(real dt_max,
     /* Set boundaries */
 
     boundary_kernel<<<blocks,threads>>>(d_cons,d_intenergy,d_x1,d_x2,d_x3,nx1,nx2,nx3,size_x1,size_x12,nf,ntot,offset,params->gamma,grid->time);
+    cudaCheckError();
+    cudaDeviceSynchronize();
     cudaCheckError();
     
     return dt;
