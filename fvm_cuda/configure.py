@@ -14,6 +14,7 @@ default_pars = {'nx1': int,
         'x3_max' : float,
         'tend' : float,
         'Nout' : int,
+        'Hout' : int,
         'outputname': str}
 
 

@@ -23,4 +23,24 @@ typedef struct GridCons {
     real *intenergy;
     real *prim;
 
+	int gridSize_update_cons, blockSize_update_cons;
+	int gridSize_transverse, blockSize_transverse;
+
+	int gridSize_riemann , blockSize_riemann ;
+	int gridSize_plm, blockSize_plm;
+	int gridSize_reduc, blockSize_reduc;
+
+#ifdef POTENTIAL
+	int gridSize_source_transverse, blockSize_source_transverse;
+	int gridSize_source, blockSize_source;
+	int gridSize_update_source, blockSize_update_source;
+#endif
+#ifdef VISCOSITY
+	int gridSize_viscous_flux, blockSize_viscous_flux;
+	int gridSize_divergence , blockSize_divergence ;
+#endif
+#ifdef CONDUCTION
+	int gridSize_conduction_flux, blockSize_conduction_flux;
+#endif
+
 } GridCons;

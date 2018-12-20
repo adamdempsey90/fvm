@@ -2,34 +2,10 @@
 #include "cuda_defs.h"
 #include <ctype.h>
 
-#define MAXBLOCKS 1024
-#define MINBLOCKS 32
-#define MAXTHREADS 256
+
 void default_pars(Parameters *params);
 void cons_to_prim_grid(GridCons *grid, Parameters *params);
 
-
-void set_threads_blocks(int n, int *threads, int *blocks) {
-	*threads = MAXTHREADS;
-	*blocks = (n+*threads-1)/(*threads);
-    if (*blocks > MAXBLOCKS) *blocks = MAXBLOCKS;
-	return;
-    /*
-	if (n <= MAXTHREADS) {
-		*threads = MAXTHREADS;
-		*blocks = 1;
-		return;
-	}
-	for(*threads=MAXTHREADS; *threads >= 64; *threads /= 2) {
-		*blocks = min((n+*threads-1)/(*threads),MAXBLOCKS);
-		if (*blocks >= MINBLOCKS) return;
-
-	}
-	printf("Can't determine threads/blocks from problem size %d\n",n);
-	return;
-    */
-
-}
 
 
 
@@ -152,7 +128,8 @@ int main(int argc, char *argv[]) {
     real dtout = (params->tend - grid->time)/(float)Nout;
     real dt_curr;
     
-    set_threads_blocks(grid->ntot,&threads,&blocks);
+    config_kernels(&threads,&blocks,grid,params);
+    //set_threads_blocks(grid->ntot,&threads,&blocks);
 #ifndef SILENT
     printf("Outputting results to %s\n",params->outputname);
 
@@ -171,7 +148,8 @@ int main(int argc, char *argv[]) {
 #ifndef PROF
     output(step,grid,params);
 #endif
-    
+    fflush(stdout);
+
    dt_curr = algogas_firststep(params->tend,threads, blocks,restart,nostep,grid,params);
 
     if (onestep) {
@@ -185,20 +163,30 @@ int main(int argc, char *argv[]) {
 #ifndef PROF
         output(step,grid,params); // Output
 #endif
+        fflush(stdout);
+
     }
     else {
 #ifndef SILENT
         printf("Evolving from %.2e to %.2e\n",grid->time,params->tend);
 #endif
+        fflush(stdout);
         for(step=1;step<=Nout;step++) {
             // Evolve for a time of dtout
             dt_curr = algogas_dt(dt_curr, dtout,threads, blocks,grid,params);
+            if (dt_curr < 0) {
+            	printf("NaN detected in domain!\n");
+            	fflush(stdout);
+            	exit(-1);
+            }
+
 #ifndef SILENT
             printf("Output %d at t=%.2e\n",step,grid->time);
 #endif
 #ifndef PROF
             output(step,grid,params); // Output
 #endif
+           fflush(stdout);
         }
     }
 
@@ -207,6 +195,8 @@ int main(int argc, char *argv[]) {
 #ifndef SILENT
     printf("Exiting.\n");
 #endif
+    fflush(stdout);
+
 
     return 0;
 
@@ -232,6 +222,7 @@ void default_pars(Parameters *params) {
 
     params->tend = .3;
     params->nout = 10;
+    params->hout = 1000;
 
 
     strcpy(params->outputname ,"out/default");

@@ -1,7 +1,6 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-
 #define cudaCheckError() {                                          \
  cudaError_t cer=cudaGetLastError();                                 \
  if(cer!=cudaSuccess) {                                              \
@@ -10,7 +9,11 @@
  }                                                                 \
 }
 
+
+
+
 #define FULL_MASK 0xffffffff
+
 
 #define GINDEX(i,j,k) ( (offset) + (i) + (j)*size_x1 + (k)*size_x12)
 
@@ -117,6 +120,9 @@ __device__ void x1_boundary_outer(int indxg, int i, int j,int k, real *cons, rea
 __device__ void x2_boundary_outer(int indxg, int i, int j,int k, real *cons, real *intenergy, real *x1, real *x2, real *x3, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time);
 __device__ void x3_boundary_outer(int indxg, int i, int j,int k, real *cons, real *intenergy, real *x1, real *x2, real *x3, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time);
 
+/* reduction.cu */
+
+
 /* Boundary conditions */
 /* boundary.cu */
 __device__ void reflecting_boundary_inner(int dir,int indxg, int i, int j,int k, real *cons, real *intenergy, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time);
@@ -126,3 +132,103 @@ __device__ void outflow_boundary_outer(int dir, int indxg, int i, int j,int k, r
 __device__ void periodic_boundary_inner(int dir, int indxg, int i, int j,int k, real *cons, real *intenergy, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time);
 __device__ void periodic_boundary_outer(int dir, int indxg, int i, int j,int k, real *cons, real *intenergy, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time);
 __device__ void ic_boundary(int indxg, int i, int j,int k, real *cons, real *intenergy, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time);
+
+
+/* config.cu */
+void config_kernels(int *threads, int *blocks, GridCons *grid, Parameters *params);
+
+/* Reduction operations */
+__inline__ __device__ real warpReduceMin(real val) {
+    for(int offset = 16; offset >0; offset /= 2) {
+#if __CUDACC_VER_MAJOR__ < 9
+        real tmp_val = __shfl_down(val,offset);
+        if (tmp_val < val)
+            val = tmp_val;
+#else
+        real tmp_val = __shfl_down_sync(FULL_MASK,val,offset);
+        if (tmp_val < val)
+            val = tmp_val;
+#endif
+
+
+    }
+    return val;
+}
+__inline__ __device__ real blockReduceMin(real val) {
+    static __shared__ real shared[32];
+    int lane = threadIdx.x % 32;
+    int wid = threadIdx.x / 32;
+
+    val = warpReduceMin(val);
+
+    if (lane == 0) shared[wid] = val;
+    __syncthreads();
+
+    val = (threadIdx.x < blockDim.x / 32) ? shared[lane] : 1e99;
+    if (wid ==0) val = warpReduceMin(val);
+    return val;
+}
+
+__inline__ __device__ real warpReduceSum(real val) {
+    for(int offset = 16; offset >0; offset /= 2) {
+#if __CUDACC_VER_MAJOR__ < 9
+        val +=__shfl_down(val,offset);
+#else
+        val += __shfl_down_sync(FULL_MASK,val,offset);
+#endif
+
+
+    }
+    return val;
+}
+__inline__ __device__ real blockReduceSum(real val) {
+    static __shared__ real shared[32];
+    int lane = threadIdx.x % 32;
+    int wid = threadIdx.x / 32;
+
+    val = warpReduceSum(val);
+
+    if (lane == 0) shared[wid] = val;
+    __syncthreads();
+
+    val = (threadIdx.x < blockDim.x / 32) ? shared[lane] : 0.;
+    if (wid ==0) val = warpReduceSum(val);
+
+    return val;
+}
+
+
+
+__inline__ __device__ int warpReduceBoolOR(int val) {
+    for(int offset = 16; offset >0; offset /= 2) {
+#if __CUDACC_VER_MAJOR__ < 9
+        val |=__shfl_down(val,offset);
+#else
+        val |= __shfl_down_sync(FULL_MASK,val,offset);
+#endif
+
+
+    }
+    return val;
+}
+__inline__ __device__ int blockReduceBoolOR(int val) {
+    static __shared__ int shared[32];
+    int lane = threadIdx.x % 32;
+    int wid = threadIdx.x / 32;
+
+    val = warpReduceBoolOR(val);
+
+    if (lane == 0) shared[wid] = val;
+    __syncthreads();
+
+    val = (threadIdx.x < blockDim.x / 32) ? shared[lane] : 0;
+    if (wid ==0) val = warpReduceBoolOR(val);
+
+    return val;
+}
+
+
+
+
+
+

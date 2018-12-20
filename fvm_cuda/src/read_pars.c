@@ -7,7 +7,7 @@
 #define FPRINT_INT(F,NAME,VAL) fprintf(f,"%s = %d\n",NAME,VAL)
 #define FPRINT_STR(F,NAME,VAL) fprintf(f,"%s = %s\n",NAME,VAL)
 void set_var(char *name,int int_val, double double_val, int bool_val, char *str_val, Parameters *params) {
-    if (strcmp(name,"nout")==0)  { params->nout= int_val; PRINT_INT(name,int_val); }
+    if (strcmp(name,"hout")==0)  { params->hout= int_val; PRINT_INT(name,int_val); }
     
     else if (strcmp(name,"nx1")==0)  { params->nx1= int_val; PRINT_INT(name,int_val); }
     
@@ -16,41 +16,25 @@ void set_var(char *name,int int_val, double double_val, int bool_val, char *str_
     else if (strcmp(name,"nx2")==0)  { params->nx2= int_val; PRINT_INT(name,int_val); }
     
     else if (strcmp(name,"nscalars")==0)  { params->nscalars= int_val; PRINT_INT(name,int_val); }
+    
+    else if (strcmp(name,"nout")==0)  { params->nout= int_val; PRINT_INT(name,int_val); }
         else if (strcmp(name,"cfl")==0)  { params->cfl= double_val; PRINT_DOUBLE(name,double_val); }
     
+    else if (strcmp(name,"x1_min")==0)  { params->x1_min= double_val; PRINT_DOUBLE(name,double_val); }
+    
     else if (strcmp(name,"x1_max")==0)  { params->x1_max= double_val; PRINT_DOUBLE(name,double_val); }
+    
+    else if (strcmp(name,"x3_max")==0)  { params->x3_max= double_val; PRINT_DOUBLE(name,double_val); }
     
     else if (strcmp(name,"x2_max")==0)  { params->x2_max= double_val; PRINT_DOUBLE(name,double_val); }
     
     else if (strcmp(name,"x2_min")==0)  { params->x2_min= double_val; PRINT_DOUBLE(name,double_val); }
     
-    else if (strcmp(name,"x3_min")==0)  { params->x3_min= double_val; PRINT_DOUBLE(name,double_val); }
-    
-    else if (strcmp(name,"x3_max")==0)  { params->x3_max= double_val; PRINT_DOUBLE(name,double_val); }
-    
-    else if (strcmp(name,"x1_min")==0)  { params->x1_min= double_val; PRINT_DOUBLE(name,double_val); }
-    
     else if (strcmp(name,"tend")==0)  { params->tend= double_val; PRINT_DOUBLE(name,double_val); }
     
+    else if (strcmp(name,"x3_min")==0)  { params->x3_min= double_val; PRINT_DOUBLE(name,double_val); }
+    
     else if (strcmp(name,"gamma")==0)  { params->gamma= double_val; PRINT_DOUBLE(name,double_val); }
-    
-    else if (strcmp(name,"ftot")==0)  { params->ftot= double_val; PRINT_DOUBLE(name,double_val); }
-    
-    else if (strcmp(name,"xi")==0)  { params->xi= double_val; PRINT_DOUBLE(name,double_val); }
-    
-    else if (strcmp(name,"delta")==0)  { params->delta= double_val; PRINT_DOUBLE(name,double_val); }
-    
-    else if (strcmp(name,"loz")==0)  { params->loz= double_val; PRINT_DOUBLE(name,double_val); }
-    
-    else if (strcmp(name,"slope")==0)  { params->slope= double_val; PRINT_DOUBLE(name,double_val); }
-    
-    else if (strcmp(name,"nu")==0)  { params->nu= double_val; PRINT_DOUBLE(name,double_val); }
-    
-    else if (strcmp(name,"g")==0)  { params->g= double_val; PRINT_DOUBLE(name,double_val); }
-    
-    else if (strcmp(name,"minf")==0)  { params->minf= double_val; PRINT_DOUBLE(name,double_val); }
-    
-    else if (strcmp(name,"ksmooth")==0)  { params->ksmooth= double_val; PRINT_DOUBLE(name,double_val); }
         else if (strcmp(name,"outputname")==0)  { sprintf(params->outputname,"%s",str_val); PRINT_STR(name,str_val); }
     
 return;

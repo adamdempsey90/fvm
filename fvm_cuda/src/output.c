@@ -299,5 +299,14 @@ void read_hdf5_real(real *data, hid_t group_path, const char *name) {
   return;
 }
 
+void history_file(real time, real *out, int n, char *fname) {
+
+	FILE *f = fopen(fname, "a");
+	fprintf(f,"%.16f",time);
+	for(int i=0;i<n;i++) fprintf(f,"\t%.16f",out[i]);
+	fprintf(f,"\n");
+	fclose(f);
+
+}
 
 

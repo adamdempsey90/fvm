@@ -39,6 +39,7 @@ __global__ void update_cons(real *cons, real *intenergy, real *F_1, real *F_2, r
     for(indx = blockIdx.x*blockDim.x + threadIdx.x; indx<ntot; indx+=blockDim.x*gridDim.x) {
     	unpack_indices(indx,&i,&j,&k,size_x1,size_x12);
         if ((i>=0)&&(i<nx1)&&(j>=0)&&(j<nx2)&&(k>=0)&&(k<nx3)) {
+
             dtdx1 = dt/dx1[i];
 #ifdef DIMS2
             dtdx2 = dt/dx2[j];

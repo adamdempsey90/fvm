@@ -5,17 +5,10 @@
 __global__ void boundary_kernel(real *cons, real *intenergy, real *x1, real *x2, real *x3,
 		int nx1, int nx2, int nx3, int size_x1, int size_x12, int nf, int ntot, int offset, real g, real time);
 
+__global__ void nancheck_kernel(real *cons, int *out, int ntot,int nf);
 
-__global__ void zero_flux_array(real *F1, real *F2, real *F3, int ntot, int nf) {
-	for(int indx = blockIdx.x*blockDim.x + threadIdx.x; indx<ntot; indx+=blockDim.x*gridDim.x) {
-		for(int n=0;n<nf;n++) {
-			F1[indx + n*ntot] = 0.;
-			F2[indx + n*ntot] = 0.;
-			F3[indx + n*ntot] = 0.;
-		}
-	}
-	return;
-}
+
+
 
 real set_bc_timestep(real dt_max,
         real *d_cons,
@@ -27,10 +20,20 @@ real set_bc_timestep(real dt_max,
         real *d_x2,
         real *d_x3,
         real *dt_arr,
-        int blocks,
-        int threads,
+        int *nan_arr,
+        int *nan_res,
         GridCons *grid, Parameters *params);
 
+__global__ void zero_flux_array(real *F1, real *F2, real *F3, int ntot, int nf) {
+	for(int indx = blockIdx.x*blockDim.x + threadIdx.x; indx<ntot; indx+=blockDim.x*gridDim.x) {
+		for(int n=0;n<nf;n++) {
+			F1[indx + n*ntot] = 0.;
+			F2[indx + n*ntot] = 0.;
+			F3[indx + n*ntot] = 0.;
+		}
+	}
+	return;
+}
 void algogas_single(real dt,
         real *d_cons,
         real *d_intenergy,
@@ -70,7 +73,7 @@ void algogas_single(real dt,
 
 #ifdef CONDUCTION
     /* Add conduction */
-     conduction_flux<<<blocks,threads>>>(d_cons,
+     conduction_flux<<<grid->gridSize_conduction_flux, grid->blockSize_conduction_flux>>>(d_cons,
             d_intenergy,
             d_F_1,
             d_F_2,
@@ -99,7 +102,7 @@ void algogas_single(real dt,
     /* Store velocities and divergence in one of
      * the reconstruction arrays
      */
-     compute_divergence<<<blocks,threads>>>(d_cons,
+     compute_divergence<<<grid->gridSize_divergence, grid->blockSize_divergence>>>(d_cons,
             d_UL_1,
             d_dx1,
             d_dx2,
@@ -116,7 +119,7 @@ void algogas_single(real dt,
             offset,
             nf);
     cudaCheckError();
-    viscous_flux<<<blocks,threads>>>(d_UL_1,
+    viscous_flux<<<grid->gridSize_viscous_flux, grid->blockSize_viscous_flux>>>(d_UL_1,
     		d_cons,
            d_F_1,
            d_F_2,
@@ -139,7 +142,7 @@ void algogas_single(real dt,
 #endif
 #if defined(CONDUCTION) || defined(VISCOSITY)
    /* Update conservative variables with diffusive fluxes */
-	update_cons<<<blocks,threads>>>(d_cons,
+	update_cons<<<grid->gridSize_update_cons, grid->blockSize_update_cons>>>(d_cons,
 		   d_intenergy,
 		   d_F_1,
 		   d_F_2,
@@ -163,7 +166,7 @@ void algogas_single(real dt,
 
 
     /* X1 reconstruction */
-	plm<<<blocks,threads>>>(d_cons ,
+	plm<<<grid->gridSize_plm, grid->blockSize_plm>>>(d_cons ,
 		d_UL_1,
 		d_UR_1,
 		d_dx1,
@@ -180,7 +183,7 @@ void algogas_single(real dt,
 		dt);
 	cudaCheckError();
 #ifdef POTENTIAL
-	source_terms<<<blocks,threads>>>(d_UL_1 ,
+	source_terms<<<grid->gridSize_source, grid->blockSize_source>>>(d_UL_1 ,
 		d_UR_1,
 		d_dx1,
 		d_x1,
@@ -200,7 +203,7 @@ void algogas_single(real dt,
 	cudaCheckError();
 
 #endif
-	riemann_fluxes<<<blocks,threads>>>(d_UL_1 ,
+	riemann_fluxes<<<grid->gridSize_riemann, grid->blockSize_riemann>>>(d_UL_1 ,
 			d_UR_1 ,
 			d_F_1 ,
 			1,
@@ -217,7 +220,7 @@ void algogas_single(real dt,
 
 	/* x2 reconstruction */
 #ifdef DIMS2
-    plm<<<blocks,threads>>>(d_cons ,
+    plm<<<grid->gridSize_plm, grid->blockSize_plm>>>(d_cons ,
             d_UL_2,
             d_UR_2,
             d_dx2,
@@ -234,7 +237,7 @@ void algogas_single(real dt,
             dt);
     cudaCheckError();
 #ifdef POTENTIAL
-	source_terms<<<blocks,threads>>>(d_UL_2 ,
+	source_terms<<<grid->gridSize_source, grid->blockSize_source>>>(d_UL_2 ,
 		d_UR_2,
 		d_dx2,
 		d_x1,
@@ -254,7 +257,7 @@ void algogas_single(real dt,
 	cudaCheckError();
     
 #endif
-	riemann_fluxes<<<blocks,threads>>>(d_UL_2 ,
+	riemann_fluxes<<<grid->gridSize_riemann, grid->blockSize_riemann>>>(d_UL_2 ,
 			d_UR_2 ,
 			d_F_2 ,
 			2,
@@ -270,7 +273,7 @@ void algogas_single(real dt,
 	cudaCheckError();
 #endif
 #ifdef DIMS3
-    plm<<<blocks,threads>>>(d_cons ,
+    plm<<<grid->gridSize_plm, grid->blockSize_plm>>>(d_cons ,
             d_UL_3,
             d_UR_3,
             d_dx3,
@@ -287,7 +290,7 @@ void algogas_single(real dt,
             dt);
     cudaCheckError();
 #ifdef POTENTIAL
-	source_terms<<<blocks,threads>>>(d_UL_3 ,
+	source_terms<<<grid->gridSize_source, grid->blockSize_source>>>(d_UL_3 ,
 		d_UR_3,
 		d_dx3,
 		d_x1,
@@ -307,7 +310,7 @@ void algogas_single(real dt,
 	cudaCheckError();
 
 #endif
-	riemann_fluxes<<<blocks,threads>>>(d_UL_3 ,
+	riemann_fluxes<<<grid->gridSize_riemann, grid->blockSize_riemann>>>(d_UL_3 ,
 			d_UR_3 ,
 			d_F_3 ,
 			3,
@@ -328,7 +331,7 @@ void algogas_single(real dt,
 
 #ifdef CTU
 #ifdef DIMS2
-	transverse_update<<<blocks,threads>>>(d_UL_1,
+	transverse_update<<<grid->gridSize_transverse, grid->blockSize_transverse>>>(d_UL_1,
 			d_UL_2,
 			d_UL_3,
 			d_UR_1,
@@ -351,7 +354,7 @@ void algogas_single(real dt,
 			nf);
 	cudaCheckError();
 #ifdef POTENTIAL
-	source_transverse_update<<<blocks,threads>>>(d_cons,
+	source_transverse_update<<<grid->gridSize_source_transverse, grid->blockSize_source_transverse>>>(d_cons,
 			d_UL_1,
 			d_UL_2,
 			d_UL_3,
@@ -379,7 +382,7 @@ void algogas_single(real dt,
 	cudaCheckError();
 #endif
     /* Compute new fluxes */
-	riemann_fluxes<<<blocks,threads>>>(d_UL_1 ,
+	riemann_fluxes<<<grid->gridSize_riemann, grid->blockSize_riemann>>>(d_UL_1 ,
 			d_UR_1 ,
 			d_F_1 ,
 			1,
@@ -393,7 +396,7 @@ void algogas_single(real dt,
 			offset,
 			params->gamma);
 	cudaCheckError();
-	riemann_fluxes<<<blocks,threads>>>(d_UL_2 ,
+	riemann_fluxes<<<grid->gridSize_riemann, grid->blockSize_riemann>>>(d_UL_2 ,
 			d_UR_2 ,
 			d_F_2 ,
 			2,
@@ -408,7 +411,7 @@ void algogas_single(real dt,
 			params->gamma);
 	cudaCheckError();
 #ifdef DIMS3
-	riemann_fluxes<<<blocks,threads>>>(d_UL_3 ,
+	riemann_fluxes<<<grid->gridSize_riemann, grid->blockSize_riemann>>>(d_UL_3 ,
 				d_UR_3 ,
 				d_F_3 ,
 				3,
@@ -426,7 +429,7 @@ void algogas_single(real dt,
 #endif // DIMS2
 #endif // CTU
 #ifdef POTENTIAL
-	compute_dhalf<<<blocks,threads>>>(d_cons,
+	compute_dhalf<<<grid->gridSize_update_cons, grid->blockSize_update_cons>>>(d_cons,
 			d_dhalf,
 			d_F_1,
 			d_F_2,
@@ -445,7 +448,7 @@ void algogas_single(real dt,
 			nf);
 	cudaCheckError();
 
-	update_source<<<blocks,threads>>>(d_cons,
+	update_source<<<grid->gridSize_update_source, grid->blockSize_update_source>>>(d_cons,
 			d_dhalf,
 			d_F_1,
 			d_F_2,
@@ -468,7 +471,7 @@ void algogas_single(real dt,
     
 #endif
     /* Final update */
-    update_cons<<<blocks,threads>>>(d_cons,
+    update_cons<<<grid->gridSize_update_cons, grid->blockSize_update_cons>>>(d_cons,
             d_intenergy,
             d_F_1,
             d_F_2,
@@ -494,6 +497,7 @@ void algogas_single(real dt,
 real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, Parameters *params) {
     real end_time = grid->time + dtout;
     real dt_max;
+    real history_dt = grid->time / (real)params->hout;
 
     int ntot = grid->ntot;
     int size_x1 = grid->size_x1;
@@ -503,7 +507,7 @@ real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, Pa
     int nf = grid->nf;
     int offset = grid->offset;
 
-
+    int nan_res;
     real *d_cons, *d_intenergy;
     real *d_F_1, *d_UL_1, *d_UR_1;
     real *d_F_2, *d_UL_2, *d_UR_2;
@@ -512,6 +516,7 @@ real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, Pa
     real *d_x1, *d_x2, *d_x3;
     real *dt_arr;
     real *d_dhalf;
+    int *nan_arr;
     
     
     cudaMalloc((void**)&d_dx1,sizeof(real)*size_x1);
@@ -584,7 +589,11 @@ real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, Pa
 	cudaCheckError();
 
 
-	cudaMalloc((void**)&dt_arr,sizeof(real)*blocks);
+	cudaMalloc((void**)&dt_arr,sizeof(real)*(grid->gridSize_reduc));
+	cudaCheckError();
+
+
+	cudaMalloc((void**)&nan_arr,sizeof(int)*(grid->gridSize_reduc));
 	cudaCheckError();
 
 
@@ -593,7 +602,7 @@ real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, Pa
     
     while (grid->time < end_time) { 
     	/* Zero flux arrays */
-    	zero_flux_array<<<threads,blocks>>>(d_F_1,d_F_2,d_F_3,ntot,nf);
+    	zero_flux_array<<<grid->gridSize_update_cons, grid->blockSize_update_cons>>>(d_F_1,d_F_2,d_F_3,ntot,nf);
     	cudaCheckError();
         /* Advance by dt */
         algogas_single(dt, 
@@ -632,15 +641,21 @@ real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, Pa
                 d_x2  + NGHX2,
                 d_x3  + NGHX3,
                 dt_arr,
-                blocks,
-                threads,
+                nan_arr,
+                &nan_res,
                 grid,params);
+//        if (grid->time % history_dt == 0) {
+//        	volume_averages(d_cons,d_intnergy,)
+//        }
+        if (nan_res) {
+        	break;
+        }
 
     }
 
     /* Convert to prim */
 
-    cons_to_prim<<<threads,blocks>>>(d_cons,d_intenergy,d_UL_1,params->gamma-1,
+    cons_to_prim<<<grid->gridSize_update_cons, grid->blockSize_update_cons>>>(d_cons,d_intenergy,d_UL_1,params->gamma-1,
     	 grid->nx[0],grid->nx[1],grid->nx[2], size_x1, size_x12, ntot, offset, nf);
     cudaCheckError();
 
@@ -674,8 +689,9 @@ real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, Pa
     cudaFree(d_x3); cudaCheckError();
     cudaFree(dt_arr); cudaCheckError();
     cudaFree(d_dhalf); cudaCheckError();
+    cudaFree(nan_arr); cudaCheckError();
 
-    return dt;
+    return nan_res ? -dt : dt;
 }
 real algogas_firststep(real dtout, int threads, int blocks, int restart, int nostep, GridCons *grid, Parameters *params) {
     real end_time = grid->time + dtout;
@@ -687,7 +703,7 @@ real algogas_firststep(real dtout, int threads, int blocks, int restart, int nos
 	int nf = grid->nf;
 	int offset = grid->offset;
 
-
+	int nan_res;
 	real *d_cons, *d_intenergy;
 	real *d_F_1, *d_UL_1, *d_UR_1;
 	real *d_F_2, *d_UL_2, *d_UR_2;
@@ -696,6 +712,7 @@ real algogas_firststep(real dtout, int threads, int blocks, int restart, int nos
 	real *d_x1, *d_x2, *d_x3;
 	real *dt_arr;
 	real *d_dhalf;
+	int *nan_arr;
 
 
     cudaMalloc((void**)&d_dx1,sizeof(real)*size_x1);
@@ -768,12 +785,15 @@ real algogas_firststep(real dtout, int threads, int blocks, int restart, int nos
    	cudaCheckError();
 
 
-   	cudaMalloc((void**)&dt_arr,sizeof(real)*blocks);
+   	cudaMalloc((void**)&dt_arr,sizeof(real)*(grid->gridSize_reduc));
+   	cudaCheckError();
+   	cudaMalloc((void**)&nan_arr,sizeof(int)*(grid->gridSize_reduc));
    	cudaCheckError();
 
 
 	/* Zero flux arrays */
-   	zero_flux_array<<<threads,blocks>>>(d_F_1,d_F_2,d_F_3,ntot,nf);
+   	printf("THREADS X BLOCKS = %d x %d\n",threads,blocks);
+   	zero_flux_array<<<grid->gridSize_update_cons, grid->blockSize_update_cons>>>(d_F_1,d_F_2,d_F_3,ntot,nf);
    	cudaCheckError();
 
     dt_max = end_time - grid->time;
@@ -790,8 +810,8 @@ real algogas_firststep(real dtout, int threads, int blocks, int restart, int nos
         d_x2  + NGHX2,
         d_x3  + NGHX3,
         dt_arr,
-        blocks,
-        threads,
+        nan_arr,
+        &nan_res,
         grid,params);
 
     /* Take one step */
@@ -834,15 +854,15 @@ real algogas_firststep(real dtout, int threads, int blocks, int restart, int nos
 			d_x2  + NGHX2,
 			d_x3  + NGHX3,
 			dt_arr,
-			blocks,
-			threads,
+	        nan_arr,
+	        &nan_res,
 			grid,params);
     }
     else {
     	grid->time += dt;
     }
     /* Copy results to host */
-    cons_to_prim<<<threads,blocks>>>(d_cons,d_intenergy,d_UL_1,params->gamma-1,
+    cons_to_prim<<<grid->gridSize_update_cons, grid->blockSize_update_cons>>>(d_cons,d_intenergy,d_UL_1,params->gamma-1,
     	 grid->nx[0],grid->nx[1],grid->nx[2], size_x1, grid->size_x12, ntot, offset, nf);
     cudaCheckError();
 
@@ -878,8 +898,10 @@ real algogas_firststep(real dtout, int threads, int blocks, int restart, int nos
     cudaFree(d_x3); cudaCheckError();
     cudaFree(dt_arr); cudaCheckError();
     cudaFree(d_dhalf); cudaCheckError();
+    cudaFree(nan_arr); cudaCheckError();
 
-    return dt;
+
+    return nan_res ? -dt : dt;
 }
 //}
 
@@ -894,8 +916,8 @@ real set_bc_timestep(real dt_max,
         real *d_x2,
         real *d_x3,
         real *dt_arr,
-        int blocks,
-        int threads,
+        int *nan_arr,
+        int *nan_res,
         GridCons *grid, Parameters *params) {
 
 
@@ -909,7 +931,8 @@ real set_bc_timestep(real dt_max,
     int offset = grid->offset;
     real dt;
     real h_dt_arr[1024];
-
+    int h_nan_arr[1024];
+    int blocks = grid->gridSize_reduc;
 //    cudaMemcpy(&grid->cons[-offset],d_cons,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
 //	cudaCheckError();
 //
@@ -919,7 +942,16 @@ real set_bc_timestep(real dt_max,
 //	printf("%lg\n",dt);
     /* Calculate new timestep */
 
-    timestep_kernel<<<blocks,threads>>>(d_cons,d_dx1,d_dx2,d_dx3,d_x1,d_x2,d_x3,dt_arr,nx1,nx2,nx3,size_x1,size_x12,
+    timestep_kernel<<<grid->gridSize_reduc , grid->blockSize_reduc >>>(d_cons,
+    		d_dx1,
+    		d_dx2,
+    		d_dx3,
+    		d_x1,
+    		d_x2,
+    		d_x3,
+    		dt_arr,
+    		nx1,nx2,nx3,
+    		size_x1,size_x12,
             ntot,offset,params->gamma);
     cudaCheckError();
 
@@ -957,13 +989,25 @@ real set_bc_timestep(real dt_max,
 
 
 
+
     /* Set boundaries */
 
-    boundary_kernel<<<blocks,threads>>>(d_cons,d_intenergy,d_x1,d_x2,d_x3,nx1,nx2,nx3,size_x1,size_x12,nf,ntot,offset,params->gamma,grid->time);
+    boundary_kernel<<<grid->gridSize_update_cons, grid->blockSize_update_cons>>>(d_cons,d_intenergy,d_x1,d_x2,d_x3,nx1,nx2,nx3,size_x1,size_x12,nf,ntot,offset,params->gamma,grid->time);
     cudaCheckError();
     cudaDeviceSynchronize();
     cudaCheckError();
     
+    /* Check for NaN */
+    nancheck_kernel<<<grid->gridSize_reduc , grid->blockSize_reduc >>>(d_cons, nan_arr, ntot,nf);
+    cudaCheckError();
+
+    /* Do final reduction on host */
+    cudaMemcpy(h_nan_arr,nan_arr,sizeof(int)*blocks,cudaMemcpyDeviceToHost);
+    cudaCheckError();
+
+    *nan_res = FALSE;
+    for(int i=0;i<blocks;i++) *nan_res |= h_nan_arr[i];
+
     return dt;
 }
 __global__ void boundary_kernel(real *cons, real *intenergy, real *x1, real *x2, real *x3,
@@ -1004,3 +1048,18 @@ __global__ void boundary_kernel(real *cons, real *intenergy, real *x1, real *x2,
     }
     return;
 }
+
+__global__ void nancheck_kernel(real *cons, int *out, int ntot,int nf) {
+    int indx,n;
+
+    int curr_res = FALSE;
+
+    for(indx = blockIdx.x*blockDim.x + threadIdx.x; indx<ntot;indx +=blockDim.x*gridDim.x) {
+    	for(n=0;n<nf;n++) curr_res |= (cons[indx +n*ntot] != cons[indx + n*ntot]);
+
+    }
+    curr_res = blockReduceBoolOR(curr_res);
+    if (threadIdx.x ==0) out[blockIdx.x]=curr_res;
+    return;
+}
+
