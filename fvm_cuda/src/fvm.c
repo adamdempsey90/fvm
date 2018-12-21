@@ -108,6 +108,7 @@ int main(int argc, char *argv[]) {
 #ifdef VISCOSITY
     printf("Compiled with VISCOSITY\n");
 #endif
+    fflush(stdout);
     allocate(grid,params);
     grid->time = 0.;
 
@@ -143,12 +144,12 @@ int main(int argc, char *argv[]) {
             + 1024); // Shared mem block
     printf("%.2f GB will be used on device\n",totbytes/(real)1e9);
     printf("Threads %d, Blocks %d\n",threads,blocks);
+    fflush(stdout);
 #endif
 
 #ifndef PROF
     output(step,grid,params);
 #endif
-    fflush(stdout);
 
    dt_curr = algogas_firststep(params->tend,threads, blocks,restart,nostep,grid,params);
 

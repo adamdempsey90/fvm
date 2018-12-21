@@ -13,11 +13,12 @@
 	cudaGetDeviceProperties(&props, device);           \
 	occupancy = (maxActiveBlocks * blockSize / props.warpSize) / (float)(props.maxThreadsPerMultiProcessor / props.warpSize);           \
 	printf("*****************************************************************\n");           \
-	printf("* Occupancy results for %s kernel:                        *\n",name);           \
-	printf("*    MinGridsize: %d, gridsize: %d, maxactiveblocks: %d          *\n",minGridSize,gridSize,maxActiveBlocks);            \
-	printf("*    <<<%d,%d>>>                                                *\n",gridSize,blockSize);           \
-	printf("*    Launched blocks of size %d. Theoretical occupancy: %.3f  *\n",blockSize, occupancy);           \
+	printf("* Occupancy results for %s kernel:\n",name);           \
+	printf("*    MinGridsize: %d, gridsize: %d, maxactiveblocks: %d\n",minGridSize,gridSize,maxActiveBlocks);            \
+	printf("*    <<<%d,%d>>> \n",gridSize,blockSize);           \
+	printf("*    Launched blocks of size %d. Theoretical occupancy: %.3f\n",blockSize, occupancy);           \
 	printf("*****************************************************************\n");           \
+	fflush(stdout);           \
 }
 
 

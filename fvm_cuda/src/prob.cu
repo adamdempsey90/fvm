@@ -43,14 +43,14 @@ __host__ __device__ real heatcond_func(real dens, real x1, real x2, real x3,real
 	  real result;
 	  real logfac;
 
-	  real xval = (x2 - zcval)/ksmooth;
+	  real xval = (x3 - zcval)/ksmooth;
 	  real xmval = (-1. - zcval)/ksmooth;
-	  real x1val = (1-x2 - zcval)/ksmooth;
+	  real x1val = (1-x3 - zcval)/ksmooth;
 	  real xm1val = (1.-(-1.) - zcval)/ksmooth;
 
 	  logfac = (1 + exp(xval))*(1+exp(-x1val));
 	  logfac /= (1+exp(xmval))*(1+exp(-xm1val));
-	  result =  1. - slope*x2 + slope*ksmooth*log(logfac);
+	  result =  1. - slope*x3 + slope*ksmooth*log(logfac);
 
 	return result*Ftot;
 }
@@ -71,8 +71,8 @@ __device__ void fixed_temp_lower(int indxg, int i, int j, int k, real *cons, rea
      * d/d0 = (T/T0)^(1./delT-1)
      */
     int n;
-    int indx_r = GINDEX(i,-j-1,k);
-    int indx = GINDEX(i,0,k);
+    int indx_r = GINDEX(i,j,-k-1);
+    int indx = GINDEX(i,j,0);
 
     real Ts,Ds, Ps,Tval,Dval,Pval,delT,f,kap;
 
@@ -83,11 +83,11 @@ __device__ void fixed_temp_lower(int indxg, int i, int j, int k, real *cons, rea
 	Ds = cons[indx];
 	Ps = Ts*delad*Ds;
 
-    real x0 = .5*(x2[0] + x2[-1]);
+    real x0 = .5*(x3[0] + x3[-1]);
 
-    kap = heatcond_func(cons[indx], x1[i],x0,0.,delad);
-    f = -kap*(Ts - Tbot)/(x2[0]-x0) / Ftot;
-    Tval = Tbot + f*log((1-slope*x2[j])/(1 + slope))/slope;
+    kap = heatcond_func(cons[indx], x1[i],x2[j],x0,delad);
+    f = -kap*(Ts - Tbot)/(x3[0]-x0) / Ftot;
+    Tval = Tbot + f*log((1-slope*x3[k])/(1 + slope))/slope;
 
     Pval = Pbot*exp(1./delad * (1 + slope)*exp(-slope/f*Tbot)*(eix(slope/f*Tval)-eix(slope/f*Tbot)));
     //printf("%d\t%lg\t%lg\t%lg\t%lg\t%lg\t%lg\t%lg\t%lg\t%lg\n",j,kap,Ts,Tbot,Tval,Tfunc(x2[j]),Pval,f,Ts,Tfunc(x2[0]));
@@ -131,18 +131,18 @@ __device__ void fixed_flux_upper(int indxg, int i, int j, int k, real *cons, rea
      * d/d0 = (T/T0)^(1./delrad-1)
      */
     int n;
-    int indx_r = GINDEX(i,nx2+ -(j-nx2)-1,k);
-    int indx = GINDEX(i,nx2-1,k);
+    int indx_r = GINDEX(i,j,nx3 + -(k-nx3)-1);
+    int indx = GINDEX(i,j,nx3-1);
     real Tval,Pval;
     real Ts,Ds,Ps,x20;
     
     Ts = intenergy[indx] * g/cons[indx];
 	Ds = cons[indx];
 	Ps = Ds*Ts*delad;
-	x20 = 1-x2[nx2-1];
+	x20 = 1-x3[nx3-1];
 
 
-	Tval = Ts - log((1-slope*(1-x2[j]))/(1-slope*x20))/slope; // Exact conductive T(z)
+	Tval = Ts - log((1-slope*(1-x3[k]))/(1-slope*x20))/slope; // Exact conductive T(z)
 	Pval = Ps*exp( (1-slope*x20)/delad*exp(slope*Ts)*(eix(-slope*Tval)-eix(-slope*Ts))); // Exact hydrostatic pressure for T(z)
 	cons[indxg] = Pval/(delad*Tval);
 
@@ -171,12 +171,20 @@ __device__ void fixed_flux_upper(int indxg, int i, int j, int k, real *cons, rea
 
     return;
 }
-__device__ void x2_boundary_inner(int indxg, int i, int j,int k, real *cons, real *intenergy, real *x1, real *x2, real *x3, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time) {
+__device__ void x3_boundary_inner(int indxg, int i, int j,int k, real *cons, real *intenergy, real *x1, real *x2, real *x3, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time) {
 	fixed_temp_lower(indxg,i,j,k,cons,intenergy,x1,x2,x3,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
 	return;
 }
-__device__ void x2_boundary_outer(int indxg, int i, int j,int k, real *cons, real *intenergy, real *x1, real *x2, real *x3, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time) {
+__device__ void x3_boundary_outer(int indxg, int i, int j,int k, real *cons, real *intenergy, real *x1, real *x2, real *x3, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time) {
     fixed_flux_upper(indxg,i,j,k,cons,intenergy,x1,x2,x3,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
+	return;
+}
+__device__ void x2_boundary_inner(int indxg, int i, int j,int k, real *cons, real *intenergy, real *x1, real *x2, real *x3, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time) {
+	periodic_boundary_inner(2,indxg,i,j,k,cons,intenergy,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
+	return;
+}
+__device__ void x2_boundary_outer(int indxg, int i, int j,int k, real *cons, real *intenergy, real *x1, real *x2, real *x3, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time) {
+	periodic_boundary_outer(2,indxg,i,j,k,cons,intenergy,nx1,nx2,nx3,ntot,nf,size_x1,size_x12,offset,g,time);
 	return;
 }
 __device__ void x1_boundary_inner(int indxg, int i, int j,int k, real *cons, real *intenergy, real *x1, real *x2, real *x3, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time) {
@@ -224,10 +232,11 @@ void init_gas(GridCons *grid, Parameters *params) {
     ksmooth = params->ksmooth;
     minF = params->minf;
 
-	real *x2 = grid->xc2;
-	real *x2m = grid->xm2;
+	real *x3 = grid->xc3;
+	real *x3m = grid->xm3;
 	real *dx1 = grid->dx1;
 	real *dx2 = grid->dx2;
+	real *dx3 = grid->dx3;
 
 	real *rho       = &grid->cons[0*ntot];
 	real *mx1       = &grid->cons[1*ntot];
@@ -267,20 +276,23 @@ void init_gas(GridCons *grid, Parameters *params) {
 			for(i=-NGHX1;i<nx1+NGHX1;i++) {
 				indx = INDEX(i,j,k);
 
-				temp = Tfunc(x2[j]);
-				pres = Pfunc(x2[j]);
+				temp = Tfunc(x3[k]);
+				pres = Pfunc(x3[k]);
 				rho[indx] =  pres/(delad*temp);
 				//if (j < 0) printf("IC\t(%d,%d)\t%lg\t%lg\t%lg\n",i,j,temp,pres,rho[indx]);
 
-				if ((x2[j]>0)&&(x2[j]<1)) {
+				if ((x3[k]>0)&&(x3[k]<1)) {
 					norm =(real)((double)rand() / (double)RAND_MAX );
 					u1 += (norm-.5)*.001;
 					norm =(real)((double)rand() / (double)RAND_MAX );
 					u2 += (norm-.5)*.001;
+					norm =(real)((double)rand() / (double)RAND_MAX );
+					u3 += (norm-.5)*.001;
 				}
 				else {
 					u1 = 0;
 					u2 = 0;
+					u3 = 0;
 				}
 				mx1[indx] = u1*rho[indx];
 				mx2[indx] = u2*rho[indx];
@@ -297,44 +309,46 @@ void init_gas(GridCons *grid, Parameters *params) {
 			}
         }
     }
-    real s1 = 0;
-    real s2 = 0;
-    real tot = 0;
-    k = 0;
-    for(j=-NGHX2;j<nx2+NGHX2;j++) {
-    	s1 = 0;
-    	s2 = 0;
-    	for(i=-NGHX1;i<nx1+NGHX1;i++) {
-    		indx = INDEX(i,j,k);
-    		s1 += dx1[i]*mx1[indx];
-    		s2 += dx1[i]*mx2[indx];
-    		tot += dx1[i];
-    	}
-    	s1 /= tot;
-    	s2 /= tot;
-    	for(i=-NGHX1;i<nx1+NGHX1;i++) {
-    		indx = INDEX(i,j,k);
-    		mx1[indx] -= s1;
-    		mx2[indx] -= s2;
-    	}
-    }
-    for(i=-NGHX1;i<nx1+NGHX1;i++) {
-    	s1 = 0;
-    	s2 = 0;
-    	for(j=-NGHX2;j<nx2+NGHX2;j++) {
-    		indx = INDEX(i,j,k);
-    		s1 += dx2[j]*mx1[indx];
-    		s2 += dx2[j]*mx2[indx];
-    		tot += dx2[j];
-    	}
-    	s1 /= tot;
-    	s2 /= tot;
-    	for(j=-NGHX2;j<nx2+NGHX2;j++) {
-    		indx = INDEX(i,j,k);
-    		mx1[indx] -= s1;
-    		mx2[indx] -= s2;
-    	}
-    }
+//    real s1 = 0;
+//    real s2 = 0;
+//    real s3 = 0;
+//    real tot = 0;
+//    for(k=-NGHX3;k<nx3+NGHX3;k++) {
+//    for(j=-NGHX2;j<nx2+NGHX2;j++) {
+//    	s1 = 0;
+//    	s2 = 0;
+//    	for(i=-NGHX1;i<nx1+NGHX1;i++) {
+//    		indx = INDEX(i,j,k);
+//    		s1 += dx1[i]*mx1[indx];
+//    		s2 += dx1[i]*mx2[indx];
+//    		tot += dx1[i];
+//    	}
+//    	s1 /= tot;
+//    	s2 /= tot;
+//    	for(i=-NGHX1;i<nx1+NGHX1;i++) {
+//    		indx = INDEX(i,j,k);
+//    		mx1[indx] -= s1;
+//    		mx2[indx] -= s2;
+//    	}
+//    }
+//    }
+//    for(i=-NGHX1;i<nx1+NGHX1;i++) {
+//    	s1 = 0;
+//    	s2 = 0;
+//    	for(j=-NGHX2;j<nx2+NGHX2;j++) {
+//    		indx = INDEX(i,j,k);
+//    		s1 += dx2[j]*mx1[indx];
+//    		s2 += dx2[j]*mx2[indx];
+//    		tot += dx2[j];
+//    	}
+//    	s1 /= tot;
+//    	s2 /= tot;
+//    	for(j=-NGHX2;j<nx2+NGHX2;j++) {
+//    		indx = INDEX(i,j,k);
+//    		mx1[indx] -= s1;
+//    		mx2[indx] -= s2;
+//    	}
+//    }
 
 //    FILE *f = fopen("out/kappa.dat","w");
 //    for(j=-NGHX2;j<nx2+NGHX2;j++) fprintf(f,"%.8e\t%.8e\t%.8e\t%.8e\n",x2m[j],heatcond_func(1.,0.,x2m[j],0.,delad),Tfunc(x2m[j]),Pfunc(x2m[j]));

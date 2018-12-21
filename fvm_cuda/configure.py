@@ -265,6 +265,7 @@ if __name__ == "__main__":
     """
     import argparse
     import shutil
+    from subprocess import call
     parser = argparse.ArgumentParser()
     parser.add_argument('-prob',type=str,default='src/tests/2D/imp',help='Problem directory')
     parser.add_argument('--prof',action='store_true',help='Enabling profiling. No outputs will be written.')
@@ -310,3 +311,6 @@ if __name__ == "__main__":
 
         f.write('\n'.join(defs_lines) + '\n\n')
         f.write('\n'.join(struct_lines) + '\n')
+
+    call(['tar','-czf','{}_src.tar.gz'.format(problem_name),'src/'])
+

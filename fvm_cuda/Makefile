@@ -5,6 +5,7 @@ HEADER=prob.h defs.h structs.h prototypes.h cuda_defs.h
 
 
 
+$(info SYSTYPE: "$(SYSTYPE)")
 
 BIN=bin/
 CUBIN=bin/cuda/
@@ -17,9 +18,18 @@ $(shell mkdir -p $(OUT))
 
 NVCC=nvcc
 
+ifeq ("$(SYSTYPE)","quest")
 CFLAGS=-O3 --compiler-options -Wall
+NVCCFLAGS=-arch=sm_37
+INCLIB=-I/software/hdf5/1.8.12-serial/include/
+LDLIB=-L/software/hdf5/1.8.12-serial/lib/
+endif
+ifeq ("$(SYSTYPE)","Ubuntu")
+CFLAGS=-O3 --compiler-options -Wall
+NVCCFLAGS=-arch=sm_60
 INCLIB=-I/usr/lib/x86_64-linux-gnu/hdf5/serial/include/
 LDLIB=-L/usr/lib/x86_64-linux-gnu/hdf5/serial/
+endif
 
 OBJECTS=$(SOURCES:.c=.o)
 CSOURCES=$(addprefix $(SRC),$(SOURCES))
@@ -36,12 +46,12 @@ OBJ=$(COBJECTS) $(CUDAOBJECTS)
 all: $(CSOURCES) $(CUDASOURCES) $(EXECUTABLE)
 
 $(EXECUTABLE): $(COBJECTS) $(CUDAOBJECTS)
-	$(NVCC) -arch=sm_60 $(LDLIB) $(OBJ) -lm -lhdf5 -o $@
+	$(NVCC)  $(NVCCFLAGS) $(LDLIB) $(OBJ) -lm -lhdf5 -o $@
 
 $(BIN)%.o: $(SRC)%.c $(CHEADER)
-	$(NVCC) $(CFLAGS) -x cu -arch=sm_60 $(INCLIB) -dc $< -o $@
+	$(NVCC) $(CFLAGS) -x cu $(NVCCFLAGS) $(INCLIB) -dc $< -o $@
 $(CUBIN)%.o: $(SRC)%.cu $(CHEADER)
-	$(NVCC) $(CFLAGS) -x cu -arch=sm_60 $(INCLIB) -dc $< -o $@
+	$(NVCC) $(CFLAGS) -x cu $(NVCCFLAGS) $(INCLIB) -dc $< -o $@
 clean:
 	rm $(OBJ) $(EXECUTABLE)
 
