@@ -11,7 +11,7 @@
 
 #define POTENTIAL
 #define CONDUCTION
-//#define VISCOSITY
+#define VISCOSITY
 //#define EXACT
 
 

@@ -35,6 +35,24 @@ void set_var(char *name,int int_val, double double_val, int bool_val, char *str_
     else if (strcmp(name,"x3_min")==0)  { params->x3_min= double_val; PRINT_DOUBLE(name,double_val); }
     
     else if (strcmp(name,"gamma")==0)  { params->gamma= double_val; PRINT_DOUBLE(name,double_val); }
+    
+    else if (strcmp(name,"ftot")==0)  { params->ftot= double_val; PRINT_DOUBLE(name,double_val); }
+    
+    else if (strcmp(name,"xi")==0)  { params->xi= double_val; PRINT_DOUBLE(name,double_val); }
+    
+    else if (strcmp(name,"delta")==0)  { params->delta= double_val; PRINT_DOUBLE(name,double_val); }
+    
+    else if (strcmp(name,"loz")==0)  { params->loz= double_val; PRINT_DOUBLE(name,double_val); }
+    
+    else if (strcmp(name,"slope")==0)  { params->slope= double_val; PRINT_DOUBLE(name,double_val); }
+    
+    else if (strcmp(name,"nu")==0)  { params->nu= double_val; PRINT_DOUBLE(name,double_val); }
+    
+    else if (strcmp(name,"g")==0)  { params->g= double_val; PRINT_DOUBLE(name,double_val); }
+    
+    else if (strcmp(name,"minf")==0)  { params->minf= double_val; PRINT_DOUBLE(name,double_val); }
+    
+    else if (strcmp(name,"ksmooth")==0)  { params->ksmooth= double_val; PRINT_DOUBLE(name,double_val); }
         else if (strcmp(name,"outputname")==0)  { sprintf(params->outputname,"%s",str_val); PRINT_STR(name,str_val); }
     
 return;

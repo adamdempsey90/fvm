@@ -124,6 +124,9 @@ __device__ void x3_boundary_outer(int indxg, int i, int j,int k, real *cons, rea
 
 
 /* Boundary conditions */
+__global__ void boundary_kernel(real *cons, real *intenergy, real *x1, real *x2, real *x3,
+		int nx1, int nx2, int nx3, int size_x1, int size_x12, int nf, int ntot, int offset, real g, real time);
+
 /* boundary.cu */
 __device__ void reflecting_boundary_inner(int dir,int indxg, int i, int j,int k, real *cons, real *intenergy, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time);
 __device__ void reflecting_boundary_outer(int dir, int indxg, int i, int j,int k, real *cons, real *intenergy, int nx1, int nx2, int nx3, int ntot, int nf, int size_x1, int size_x12, int offset, real g, real time);

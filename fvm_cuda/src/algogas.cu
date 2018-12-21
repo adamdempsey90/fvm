@@ -2,8 +2,6 @@
 #include "cuda_defs.h"
 
 #define DTMIN 1e-8
-__global__ void boundary_kernel(real *cons, real *intenergy, real *x1, real *x2, real *x3,
-		int nx1, int nx2, int nx3, int size_x1, int size_x12, int nf, int ntot, int offset, real g, real time);
 
 __global__ void nancheck_kernel(real *cons, int *out, int ntot,int nf);
 
@@ -992,7 +990,7 @@ real set_bc_timestep(real dt_max,
 
     /* Set boundaries */
 
-    boundary_kernel<<<grid->gridSize_update_cons, grid->blockSize_update_cons>>>(d_cons,d_intenergy,d_x1,d_x2,d_x3,nx1,nx2,nx3,size_x1,size_x12,nf,ntot,offset,params->gamma,grid->time);
+    boundary_kernel<<<grid->gridSize_boundary , grid->blockSize_boundary>>>(d_cons,d_intenergy,d_x1,d_x2,d_x3,nx1,nx2,nx3,size_x1,size_x12,nf,ntot,offset,params->gamma,grid->time);
     cudaCheckError();
     cudaDeviceSynchronize();
     cudaCheckError();

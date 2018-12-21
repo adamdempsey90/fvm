@@ -29,6 +29,7 @@ typedef struct GridCons {
 	int gridSize_riemann , blockSize_riemann ;
 	int gridSize_plm, blockSize_plm;
 	int gridSize_reduc, blockSize_reduc;
+	int gridSize_boundary, blockSize_boundary;
 
 #ifdef POTENTIAL
 	int gridSize_source_transverse, blockSize_source_transverse;

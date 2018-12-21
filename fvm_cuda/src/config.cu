@@ -12,10 +12,12 @@
 	cudaGetDevice(&device);           \
 	cudaGetDeviceProperties(&props, device);           \
 	occupancy = (maxActiveBlocks * blockSize / props.warpSize) / (float)(props.maxThreadsPerMultiProcessor / props.warpSize);           \
-	printf("Occupancy results for %s:\n",name);           \
-	printf("\tMinGridsize: %d, gridsize: %d, maxactiveblocks: %d\n",minGridSize,gridSize,maxActiveBlocks);            \
-	printf("\t<<<%d,%d>>>\n",gridSize,blockSize);           \
-	printf("\tLaunched blocks of size %d. Theoretical occupancy: %f\n",blockSize, occupancy);           \
+	printf("*****************************************************************\n");           \
+	printf("* Occupancy results for %s kernel:                        *\n",name);           \
+	printf("*    MinGridsize: %d, gridsize: %d, maxactiveblocks: %d          *\n",minGridSize,gridSize,maxActiveBlocks);            \
+	printf("*    <<<%d,%d>>>                                                *\n",gridSize,blockSize);           \
+	printf("*    Launched blocks of size %d. Theoretical occupancy: %.3f  *\n",blockSize, occupancy);           \
+	printf("*****************************************************************\n");           \
 }
 
 
@@ -57,6 +59,7 @@ void config_kernels(int *threads, int *blocks, GridCons *grid, Parameters *param
 	real *d_F_3, *d_UL_3, *d_UR_3;
 	real *d_dx1, *d_dx2, *d_dx3;
 	real *d_x1, *d_x2, *d_x3;
+	real *d_dhalf;
 
 
 
@@ -125,12 +128,29 @@ void config_kernels(int *threads, int *blocks, GridCons *grid, Parameters *param
 
 	cudaMalloc((void**)&d_F_3,sizeof(real)*ntot*nf);
 	cudaCheckError();
-
-
+   	cudaMalloc((void**)&d_dhalf,sizeof(real)*ntot);
+   	cudaCheckError();
+	cudaMemcpy(d_dhalf,d_cons,sizeof(real)*ntot,cudaMemcpyDeviceToDevice);
+	cudaCheckError();
 
 	int device, maxActiveBlocks;
 	float occupancy;
 	cudaDeviceProp props;
+
+	OccuPre(boundary_kernel)
+    boundary_kernel<<<gridSize, blockSize>>>(d_cons,
+    		d_intenergy,
+            d_x1  + NGHX1,
+            d_x2  + NGHX2,
+            d_x3  + NGHX3,
+    		nx1,nx2,nx3,
+    		size_x1,size_x12,
+    		nf,ntot,offset,
+    		params->gamma,0.0);
+    cudaCheckError();
+    OccuPost(boundary_kernel,"boundary_kernel")
+	grid->gridSize_boundary = gridSize;
+	grid->blockSize_boundary  = blockSize;
 
 #ifdef CONDUCTION
     /* Add conduction */
@@ -158,7 +178,7 @@ void config_kernels(int *threads, int *blocks, GridCons *grid, Parameters *param
     cudaCheckError();
     OccuPost(conduction_flux,"conduction_flux")
 	grid->gridSize_conduction_flux = gridSize;
-	grid->blockSize_conduction_fluxe  = blockSize;
+	grid->blockSize_conduction_flux  = blockSize;
 
 #endif
 
@@ -167,7 +187,7 @@ void config_kernels(int *threads, int *blocks, GridCons *grid, Parameters *param
     /* Store velocities and divergence in one of
      * the reconstruction arrays
      */
-	OccuPre(divergence)
+	OccuPre(compute_divergence)
 
      compute_divergence<<< gridSize, blockSize>>>(d_cons,
             d_UL_1,
@@ -186,7 +206,7 @@ void config_kernels(int *threads, int *blocks, GridCons *grid, Parameters *param
             offset,
             nf);
     cudaCheckError();
-    OccuPost(divergence,"divergence")
+    OccuPost(compute_divergence,"divergence")
 	grid->gridSize_divergence = gridSize;
 	grid->blockSize_divergence  = blockSize;
 
@@ -245,7 +265,7 @@ void config_kernels(int *threads, int *blocks, GridCons *grid, Parameters *param
 
 	source_terms<<< gridSize, blockSize>>>(d_UL_1 ,
 		d_UR_1,
-		d_dx1 + NGXH1,
+		d_dx1 + NGHX1,
         d_x1  + NGHX1,
         d_x2  + NGHX2,
         d_x3  + NGHX3,
@@ -323,7 +343,7 @@ void config_kernels(int *threads, int *blocks, GridCons *grid, Parameters *param
 	grid->blockSize_transverse = blockSize;
 
 #ifdef POTENTIAL
-	OccuPre(source_transverse)
+	OccuPre(source_transverse_update)
 
 	source_transverse_update<<< gridSize, blockSize>>>(d_cons,
 			d_UL_1,
@@ -351,7 +371,7 @@ void config_kernels(int *threads, int *blocks, GridCons *grid, Parameters *param
 			offset,
 			nf);
 	cudaCheckError();
-	OccuPost(source_transverse,"source_transverse")
+	OccuPost(source_transverse_update,"source_transverse")
 	grid->gridSize_source_transverse = gridSize;
 	grid->blockSize_source_transverse = blockSize;
 #endif
@@ -458,7 +478,7 @@ void config_kernels(int *threads, int *blocks, GridCons *grid, Parameters *param
     cudaFree(d_x2); cudaCheckError();
     cudaFree(d_x3); cudaCheckError();
     cudaFree(dt_arr); cudaCheckError();
-
+    cudaFree(d_dhalf); cudaCheckError();
 
 
 	return;
