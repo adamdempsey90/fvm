@@ -31,7 +31,7 @@ __host__ __device__ static real e1xb(const real x);
 
 
 __host__ __device__ real gravpot(real x, real y, real z) {
-    return g_param*y;
+    return g_param*z;
 }
 __host__ __device__ real kinematic_viscosity(real x1, real x2, real x3) {
 	return nu;
@@ -97,8 +97,8 @@ __device__ void fixed_temp_lower(int indxg, int i, int j, int k, real *cons, rea
 
     /* Velocities are reflecting */
     cons[indxg + 1*ntot] = cons[indx_r + 1*ntot];
-    cons[indxg + 2*ntot] = -cons[indx_r + 2*ntot];
-    cons[indxg + 3*ntot] = cons[indx_r + 3*ntot];
+    cons[indxg + 2*ntot] = cons[indx_r + 2*ntot];
+    cons[indxg + 3*ntot] = -cons[indx_r + 3*ntot];
     
     
 
@@ -148,8 +148,8 @@ __device__ void fixed_flux_upper(int indxg, int i, int j, int k, real *cons, rea
 
     /* Velocities are reflecting */
     cons[indxg + 1*ntot] = cons[indx_r + 1*ntot];
-    cons[indxg + 2*ntot] = -cons[indx_r + 2*ntot];
-    cons[indxg + 3*ntot] = cons[indx_r + 3*ntot];
+    cons[indxg + 2*ntot] = cons[indx_r + 2*ntot];
+    cons[indxg + 3*ntot] = -cons[indx_r + 3*ntot];
     
     
 
@@ -280,7 +280,10 @@ void init_gas(GridCons *grid, Parameters *params) {
 				pres = Pfunc(x3[k]);
 				rho[indx] =  pres/(delad*temp);
 				//if (j < 0) printf("IC\t(%d,%d)\t%lg\t%lg\t%lg\n",i,j,temp,pres,rho[indx]);
-
+				u1 = 0;
+				u2 = 0;
+				u3 = 0;
+                /*
 				if ((x3[k]>0)&&(x3[k]<1)) {
 					norm =(real)((double)rand() / (double)RAND_MAX );
 					u1 += (norm-.5)*.001;
@@ -294,6 +297,7 @@ void init_gas(GridCons *grid, Parameters *params) {
 					u2 = 0;
 					u3 = 0;
 				}
+                */
 				mx1[indx] = u1*rho[indx];
 				mx2[indx] = u2*rho[indx];
 				mx3[indx] = u3*rho[indx];
