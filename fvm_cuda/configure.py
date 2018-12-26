@@ -245,6 +245,11 @@ def create_struct(lines):
 
 
 
+def add_extra_def(name,args,defs_lines,extra_defs,defname=None):
+    if args[name.lower()]:
+        if not any([name.lower() in x.lower() for x in defs_lines]):
+            extra_defs.append('#define {}'.format(name.upper() if defname is None else defname))
+    return
 
 if __name__ == "__main__":
     """
@@ -270,13 +275,31 @@ if __name__ == "__main__":
     parser.add_argument('-prob',type=str,default='src/tests/2D/imp',help='Problem directory')
     parser.add_argument('--prof',action='store_true',help='Enabling profiling. No outputs will be written.')
     parser.add_argument('--silent',action='store_true',help='Silences all output to stdout.')
+    parser.add_argument('--pcm',action='store_true',help='Piecewise constant reconstruction.')
+    parser.add_argument('--plm',action='store_true',help='Piecewise linear reconstruction.')
+    parser.add_argument('--ppm',action='store_true',help='Piecewise parabolic reconstruction.')
+    parser.add_argument('--ctu',action='store_true',help='Use CTU algorithm.')
+    parser.add_argument('--conduction',action='store_true',help='Enable heat conduction.')
+    parser.add_argument('--viscosity',action='store_true',help='Enable viscosity.')
+    parser.add_argument('--potential',action='store_true',help='Enable static gravitational potential.')
+    parser.add_argument('--hll',action='store_true',help='Use HLL Riemann solver.')
+    parser.add_argument('--hllc',action='store_true',help='Use HLLC Riemann solver.')
+    parser.add_argument('--exact',action='store_true',help='Use exact Riemann solver.')
+    parser.add_argument('--float',action='store_true',help='Use floats instead of doubles.')
+    parser.add_argument('--dims1',action='store_true',help='1D problem.')
+    parser.add_argument('--dims2',action='store_true',help='2D problem.')
+    parser.add_argument('--dims3',action='store_true',help='3D problem.')
+
+
 
 
     args = vars(parser.parse_args())
 
+
     directory = args['prob']
-    prof = args['prof']
-    silent = args['silent']
+
+
+
 
     if directory[-1] != '/':
         directory += '/'
@@ -289,27 +312,95 @@ if __name__ == "__main__":
 
 
 
+
+
+
+
+
+    defs_lines = read_defs_file(defsfile)
+    extra_defs = []
+
+    # Number of dims
+    dims1 = int(args['dims1'])
+    dims2 = int(args['dims2'])
+    dims3 = int(args['dims3'])
+    rsum = dims1 + dims2 + dims3
+    if rsum > 0:
+        if rsum > 1:
+            print('Can only have one of dims1, dims2, dims3 defined!')
+            exit()
+        else:
+            # Check for already defined Riemann solver
+            defs_lines = list(filter(lambda x: not any([c in x.lower() for c in ['dims1','dims2','dims3']]), defs_lines))
+            if dims1:
+                extra_defs.append('#define DIMS1')
+            if dims2:
+                extra_defs.append('#define DIMS2')
+            if dims3:
+                extra_defs.append('#define DIMS3')
+
+    # Riemann solver
+    hll = int(args['hll'])
+    hllc = int(args['hllc'])
+    exact = int(args['exact'])
+    rsum = hll + hllc + exact
+    if rsum > 0:
+        if rsum > 1:
+            print('Can only have one of HLL, HLLC, EXACT defined!')
+            exit()
+        else:
+            # Check for already defined Riemann solver
+            defs_lines = list(filter(lambda x: not any([c in x.lower() for c in ['hll','hllc','exact']]), defs_lines))
+            if hll:
+                extra_defs.append('#define HLL')
+            if hllc:
+                extra_defs.append('#define HLLC')
+            if exact:
+                extra_defs.append('#define EXACT')
+
+    # Reconstruction
+    pcm = int(args['pcm'])
+    plm = int(args['plm'])
+    ppm = int(args['ppm'])
+    rsum = pcm + plm + ppm
+    if rsum > 0:
+        if rsum > 1:
+            print('Can only have one of PCM, PLM, PPM defined!')
+            exit()
+        else:
+            # Check for already defined Riemann solver
+            defs_lines = list(filter(lambda x: not any([c in x.lower() for c in ['pcm','plm','ppm']]), defs_lines))
+            if pcm:
+                extra_defs.append('#define PCM')
+            if plm:
+                extra_defs.append('#define PLM')
+            if ppm:
+                extra_defs.append('#define PPM')
+
+
+    add_extra_def('viscosity',args,defs_lines,extra_defs)
+    add_extra_def('conduction',args,defs_lines,extra_defs)
+    add_extra_def('potential',args,defs_lines,extra_defs)
+    add_extra_def('ctu',args,defs_lines,extra_defs)
+    add_extra_def('prof',args,defs_lines,extra_defs)
+    add_extra_def('silent',args,defs_lines,extra_defs)
+    add_extra_def('float',args,defs_lines,extra_defs,defname='ISFLOAT')
+
+
+
+    # Write outputs
+
     shutil.copy(defsfile,'src/prob.h')
     shutil.copy(initfile,'src/prob.cu')
-
-
-
-
 
     lines = load_par_file(parfile)
     create_par_file(lines,'src/read_pars.c')
 
 
     struct_lines = create_struct(lines)
-    defs_lines = read_defs_file(defsfile)
-    if prof:
-        defs_lines.append("#define PROF")
-    if silent:
-        defs_lines.append("#define SILENT")
-
     with open('src/prob.h','w') as f:
 
-        f.write('\n'.join(defs_lines) + '\n\n')
+        f.write('\n'.join(defs_lines + extra_defs) + '\n\n')
         f.write('\n'.join(struct_lines) + '\n')
 
     call(['tar','-czf','{}_src.tar.gz'.format(problem_name),'src/'])
