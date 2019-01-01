@@ -240,8 +240,8 @@ void config_kernels(int *threads, int *blocks, GridCons *grid, Parameters *param
 
 
     /* X1 reconstruction */
-	OccuPre(plm)
-	plm<<< gridSize, blockSize>>>(d_cons ,
+	OccuPre(reconstruct)
+	reconstruct<<< gridSize, blockSize>>>(d_cons ,
 		d_UL_1,
 		d_UR_1,
 		d_dx1 +NGHX1,
@@ -257,9 +257,9 @@ void config_kernels(int *threads, int *blocks, GridCons *grid, Parameters *param
 		params->gamma-1,
 		dt);
 	cudaCheckError();
-	OccuPost(plm,"plm x1")
-	grid->gridSize_plm = gridSize;
-	grid->blockSize_plm  = blockSize;
+	OccuPost(reconstruct,"reconstruct x1")
+	grid->gridSize_reconstruct = gridSize;
+	grid->blockSize_reconstruct  = blockSize;
 
 #ifdef POTENTIAL
 	OccuPre(source_terms)

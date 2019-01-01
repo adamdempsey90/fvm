@@ -11,10 +11,13 @@ x2_min = -2.
 x2_max = 2.
 
 tend = 30
-Nout = 30 
 
 g = .1
 nu = .001
 amp = .01
-outputname = out/test
+
+Nout0d = 1000
+Nout2d = 30
+outputdir = out/
+outputname = test
 

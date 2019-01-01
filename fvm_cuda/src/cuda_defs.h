@@ -34,6 +34,47 @@ __inline __device__ real MIN3(real a, real b, real c) {return (a<b) ? ( (a<c) ? 
 __inline __device__ real MAX3(real a, real b, real c) {return (a>b) ? ( (a>c) ? a : c ) : ( (b>c) ? b : c );}
 
 
+/* driver.cu */
+ void driver(GridCons *grid, Parameters *params);
+
+/* algogas.cu */
+real set_bc_timestep(real dt_max,
+        real *d_cons,
+        real *d_intenergy,
+        real *d_dx1,
+        real *d_dx2,
+        real *d_dx3,
+        real *d_x1,
+        real *d_x2,
+        real *d_x3,
+        real *dt_arr,
+        int *nan_arr,
+        int *nan_res,
+        GridCons *grid, Parameters *params);
+void algogas_single(real dt,
+        real *d_cons,
+        real *d_intenergy,
+        real *d_UL_1,
+        real *d_UR_1,
+        real *d_F_1,
+        real *d_UL_2,
+        real *d_UR_2,
+        real *d_F_2,
+        real *d_UL_3,
+        real *d_UR_3,
+        real *d_F_3,
+        real *d_dhalf,
+        real *d_dx1,
+        real *d_dx2,
+        real *d_dx3,
+        real *d_x1,
+        real *d_x2,
+        real *d_x3,
+        real *dt_arr,
+        GridCons *grid, Parameters *params);
+
+__global__ void zero_flux_array(real *F1, real *F2, real *F3, int ntot, int nf);
+
 /* update.cu */
 __global__ void compute_dhalf(real *cons, real *dhalf, real *F_1, real *F_2,real *F_3,
         real *dx1, real *dx2, real *dx3, real dt, int nx1, int nx2, int nx3, int size_x1, int size_x12, int ntot, int offset, int nf);
@@ -65,7 +106,7 @@ __device__ void anrs(const real dL,const real uL, const real pL, const real aL,
         real *ps, real *us, real g, real g1,real g2,real g3,real g4);
 
 /* reconstruct.cu */
-__global__ void plm(real *cons, real *UL, real *UR, real *dx,
+__global__ void reconstruct(real *cons, real *UL, real *UR, real *dx,
         int dir1,int nx1, int nx2, int nx3, int size_x1, int size_x12,
         int nf,int ntot, int offset, real g1, real dt);
 
@@ -229,7 +270,6 @@ __inline__ __device__ int blockReduceBoolOR(int val) {
 
     return val;
 }
-
 
 
 

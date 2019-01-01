@@ -11,10 +11,11 @@ x2_min = 0.
 x2_max = 1.
 
 tend = .25
-Nout = 10 
 
-outputname = out/test
-
+Nout0d = 1000
+Nout2d = 10
+outputdir = out/
+outputname = test
 # Riemann problem parameters 
 # Upper Left
 p_ul = .35

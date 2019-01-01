@@ -15,9 +15,12 @@ x3_min = -2
 x3_max = 2
 
 tend = 30
-Nout = 30 
 
 g = .1
 
-outputname = out/test
+Nout0d = 1000
+Nout3d = 30
+outputdir = out/
+outputname = test
+
 

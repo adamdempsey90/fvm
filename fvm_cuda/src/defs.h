@@ -30,11 +30,16 @@
 #endif
 
 
+#ifdef PPM
+#define NGHX1 4
+#else
 #define NGHX1 3
+#endif
+
 
 
 #ifdef DIMS3
-	#define NGHX3 3
+	#define NGHX3 NGHX1
 #ifndef DIMS2
 	#define DIMS2
 #endif
@@ -44,12 +49,12 @@
 
 
 #ifdef DIMS2
-	#define NGHX2 3
+	#define NGHX2 NGHX1
 #ifndef DIMS1
 	#define DIMS1
 #endif
 #else
-	#define NGHX2 0
+	#define NGHX2 NGHX1
 #endif
 
 

@@ -4,8 +4,10 @@ cfl = .2
 x1_min = 0.
 x1_max = 1.
 tend = .15
-Nout = 10
-outputname = out/test
+Nout0d = 100
+Nout1d = 10
+outputdir = out/
+outputname = test
 
 
 x0 = .5

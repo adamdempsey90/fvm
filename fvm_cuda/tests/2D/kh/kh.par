@@ -11,7 +11,10 @@ x2_min = -.5
 x2_max = .5
 
 tend = 5.
-Nout = 10 
 
-outputname = out/test
+Nout0d = 1000
+Nout2d = 10
+outputdir = out/
+outputname = test
+
 

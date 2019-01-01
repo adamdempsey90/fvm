@@ -15,7 +15,9 @@ x3_min = -.5
 x3_max = .5
 
 tend = 5.
-Nout = 10 
 
-outputname = out/test
+Nout0d = 1000
+Nout3d = 10
+outputdir = out/
+outputname = test
 

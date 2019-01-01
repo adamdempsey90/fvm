@@ -23,17 +23,31 @@
 
 void write_hdf5_real(real *data, hsize_t *dims, int ndims, hid_t group_path, const char *name);
 void read_hdf5_real(real *data, hid_t group_path, const char *name);
-void output_1d(const char *fname,real *xm1, real *prim,
-		real t, real g, int ntot, int nf, int size_x1) {
+
+
+void snapshot_1d(char *name, GridCons *grid, Parameters *params) {
+
+    int size_x1 = grid->size_x1;
+    int ntot = grid->ntot;
+    int nf = grid->nf;
+    real *xm1 = &grid->xm1[-NGHX1];
+    real *prim = &grid->prim[-grid->offset];
+
+    char fname[512];
+    sprintf(fname, "%s/%s.h5", params->outputdir,name);
+#ifndef SILENT
+	printf("Outputting 1D snapshot at t=%.2e to %s...\n",grid->time,fname);
+#endif
 	int i;
 	char scalarname[512];
 	hid_t file_id, data_id;
 
+
 	hsize_t dims3[1];
 	hsize_t dims_single[1] = {1};
 	hsize_t dims_x1[1];
-	real time[1] = {t};
-	real gamma[1] = {g};
+	real time[1] = {grid->time};
+	real gamma[1] = {params->gamma};
 
 	dims_x1[0] = size_x1 + 1;
 	dims3[0] = size_x1;
@@ -61,8 +75,21 @@ void output_1d(const char *fname,real *xm1, real *prim,
 	return;
 }
 
-void output_2d(const char *fname,real *xm1, real *xm2, real *prim,
-		real t, real g, int ntot, int nf, int size_x1, int size_x2) {
+void snapshot_2d(char *name, GridCons *grid, Parameters *params) {
+
+    int size_x1 = grid->size_x1;
+    int size_x2 = grid->size_x2;
+    int ntot = grid->ntot;
+    int nf = grid->nf;
+    real *xm1 = &grid->xm1[-NGHX1];
+    real *xm2 = &grid->xm2[-NGHX2];
+    real *prim = &grid->prim[-grid->offset];
+    char fname[512];
+    sprintf(fname, "%s/%s.h5", params->outputdir,name);
+#ifndef SILENT
+	printf("Outputting 2D snapshot at t=%.2e to %s...\n",grid->time,fname);
+#endif
+
 	int i;
 	char scalarname[512];
 	hid_t file_id, data_id;
@@ -70,8 +97,8 @@ void output_2d(const char *fname,real *xm1, real *xm2, real *prim,
 	hsize_t dims3[2];
 	hsize_t dims_single[1] = {1};
 	hsize_t dims_x1[1], dims_x2[1];
-	real time[1] = {t};
-	real gamma[1] = {g};
+	real time[1] = {grid->time};
+	real gamma[1] = {params->gamma};
 
 	dims_x1[0] =size_x1 + 1;
 	dims_x2[0] = size_x2 + 1;
@@ -102,8 +129,25 @@ void output_2d(const char *fname,real *xm1, real *xm2, real *prim,
 	return;
 }
 
-void output_3d(const char *fname,real *xm1, real *xm2, real *xm3, real *prim,
-		real t, real g, int ntot, int nf, int size_x1, int size_x2, int size_x3) {
+void snapshot_3d(char *name, GridCons *grid, Parameters *params) {
+
+    int size_x1 = grid->size_x1;
+    int size_x2 = grid->size_x2;
+    int size_x3 = grid->size_x3;
+    int ntot = grid->ntot;
+    int nf = grid->nf;
+    real *xm1 = &grid->xm1[-NGHX1];
+    real *xm2 = &grid->xm2[-NGHX2];
+    real *xm3 = &grid->xm3[-NGHX3];
+    real *prim = &grid->prim[-grid->offset];
+
+
+    char fname[512];
+    sprintf(fname, "%s/%s.h5", params->outputdir,name);
+#ifndef SILENT
+	printf("Outputting 3D snapshot at t=%.2e to %s...\n",grid->time,fname);
+#endif
+
 	int i;
 	char scalarname[512];
 	hid_t file_id, data_id;
@@ -111,8 +155,8 @@ void output_3d(const char *fname,real *xm1, real *xm2, real *xm3, real *prim,
 	hsize_t dims3[3];
 	hsize_t dims_single[1] = {1};
 	hsize_t dims_x1[1], dims_x2[1],dims_x3[1];
-	real time[1] = {t};
-	real gamma[1] = {g};
+	real time[1] = {grid->time};
+	real gamma[1] = {params->gamma};
 
 	dims_x1[0] = size_x1 + 1;
 	dims_x2[0] = size_x2 + 1;
@@ -151,37 +195,35 @@ void output_3d(const char *fname,real *xm1, real *xm2, real *xm3, real *prim,
 
 
 
-void output(int step, GridCons *grid, Parameters *params) {
+//void output(int step, GridCons *grid, Parameters *params) {
+//
+//
+//    char fname[512];
+//
+//    sprintf(fname, "%s_%d.h5",params->outputname,step);
+//
+//#ifdef DIMS3
+//    		/* 3d output */
+//	output_3d(fname,&grid->xm1[-NGHX1],&grid->xm2[-NGHX2],&grid->xm3[-NGHX3],&grid->prim[-grid->offset],
+//			grid->time,params->gamma,grid->ntot,grid->nf,grid->size_x1,grid->size_x2,grid->size_x3);
+//#else
+//#ifdef DIMS2
+//	/* 2d output */
+//	output_2d(fname,&grid->xm1[-NGHX1],&grid->xm2[-NGHX2],&grid->prim[-grid->offset],
+//						grid->time,params->gamma,grid->ntot,grid->nf,grid->size_x1,grid->size_x2);
+//#else
+//	/* 1d output */
+//	output_1d(fname,&grid->xm1[-NGHX1],&grid->prim[-grid->offset],
+//									grid->time,params->gamma,grid->ntot,grid->nf,grid->size_x1);
+//#endif
+//#endif
+//
+//
+//
+//    return;
+//
+//}
 
-
-    char fname[512];
-
-    sprintf(fname, "%s_%d.h5",params->outputname,step);
-#ifndef SILENT
-	printf("Outputting Results to %s...\n",fname);
-#endif
-
-#ifdef DIMS3
-    		/* 3d output */
-	output_3d(fname,&grid->xm1[-NGHX1],&grid->xm2[-NGHX2],&grid->xm3[-NGHX3],&grid->prim[-grid->offset],
-			grid->time,params->gamma,grid->ntot,grid->nf,grid->size_x1,grid->size_x2,grid->size_x3);
-#else
-#ifdef DIMS2
-	/* 2d output */
-	output_2d(fname,&grid->xm1[-NGHX1],&grid->xm2[-NGHX2],&grid->prim[-grid->offset],
-						grid->time,params->gamma,grid->ntot,grid->nf,grid->size_x1,grid->size_x2);
-#else
-	/* 1d output */
-	output_1d(fname,&grid->xm1[-NGHX1],&grid->prim[-grid->offset],
-									grid->time,params->gamma,grid->ntot,grid->nf,grid->size_x1);
-#endif
-#endif
-
-
-
-    return;
-
-}
 
 void read_restart(const char *fname, GridCons *grid, Parameters *params) {
 	int i,n,ntot,offset;
@@ -276,6 +318,17 @@ void read_restart(const char *fname, GridCons *grid, Parameters *params) {
 
 }
 
+void snapshot(char *name, GridCons *grid, Parameters *params) {
+#ifdef DIMS3
+    snapshot_3d(name,grid,params);
+#else
+#ifdef DIMS2
+    snapshot_2d(name,grid,params);
+#else
+    snapshot_1d(name,grid,params);
+#endif
+#endif
+}
 
 void write_hdf5_real(real *data, hsize_t *dims, int ndims, hid_t group_path, const char *name) {
   hid_t dspc_id, dset_id;

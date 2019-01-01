@@ -8,30 +8,7 @@ __global__ void nancheck_kernel(real *cons, int *out, int ntot,int nf);
 
 
 
-real set_bc_timestep(real dt_max,
-        real *d_cons,
-        real *d_intenergy,
-        real *d_dx1,
-        real *d_dx2,
-        real *d_dx3,
-        real *d_x1,
-        real *d_x2,
-        real *d_x3,
-        real *dt_arr,
-        int *nan_arr,
-        int *nan_res,
-        GridCons *grid, Parameters *params);
 
-__global__ void zero_flux_array(real *F1, real *F2, real *F3, int ntot, int nf) {
-	for(int indx = blockIdx.x*blockDim.x + threadIdx.x; indx<ntot; indx+=blockDim.x*gridDim.x) {
-		for(int n=0;n<nf;n++) {
-			F1[indx + n*ntot] = 0.;
-			F2[indx + n*ntot] = 0.;
-			F3[indx + n*ntot] = 0.;
-		}
-	}
-	return;
-}
 void algogas_single(real dt,
         real *d_cons,
         real *d_intenergy,
@@ -52,8 +29,6 @@ void algogas_single(real dt,
         real *d_x2,
         real *d_x3,
         real *dt_arr,
-        int blocks,
-        int threads,
         GridCons *grid, Parameters *params) {
 
 
@@ -164,7 +139,7 @@ void algogas_single(real dt,
 
 
     /* X1 reconstruction */
-	plm<<<grid->gridSize_plm, grid->blockSize_plm>>>(d_cons ,
+	reconstruct<<<grid->gridSize_reconstruct, grid->blockSize_reconstruct>>>(d_cons ,
 		d_UL_1,
 		d_UR_1,
 		d_dx1,
@@ -218,7 +193,7 @@ void algogas_single(real dt,
 
 	/* x2 reconstruction */
 #ifdef DIMS2
-    plm<<<grid->gridSize_plm, grid->blockSize_plm>>>(d_cons ,
+	reconstruct<<<grid->gridSize_reconstruct, grid->blockSize_reconstruct>>>(d_cons ,
             d_UL_2,
             d_UR_2,
             d_dx2,
@@ -271,7 +246,7 @@ void algogas_single(real dt,
 	cudaCheckError();
 #endif
 #ifdef DIMS3
-    plm<<<grid->gridSize_plm, grid->blockSize_plm>>>(d_cons ,
+	reconstruct<<<grid->gridSize_reconstruct, grid->blockSize_reconstruct>>>(d_cons ,
             d_UL_3,
             d_UR_3,
             d_dx3,
@@ -492,416 +467,6 @@ void algogas_single(real dt,
     return;
 }
 
-real algogas_dt(real dt, real dtout, int threads, int blocks, GridCons *grid, Parameters *params) {
-    real end_time = grid->time + dtout;
-    real dt_max;
-    real history_dt = grid->time / (real)params->hout;
-
-    int ntot = grid->ntot;
-    int size_x1 = grid->size_x1;
-    int size_x2 = grid->size_x2;
-    int size_x3 = grid->size_x3;
-    int size_x12 = grid->size_x12;
-    int nf = grid->nf;
-    int offset = grid->offset;
-
-    int nan_res;
-    real *d_cons, *d_intenergy;
-    real *d_F_1, *d_UL_1, *d_UR_1;
-    real *d_F_2, *d_UL_2, *d_UR_2;
-    real *d_F_3, *d_UL_3, *d_UR_3;
-    real *d_dx1, *d_dx2, *d_dx3;
-    real *d_x1, *d_x2, *d_x3;
-    real *dt_arr;
-    real *d_dhalf;
-    int *nan_arr;
-    
-    
-    cudaMalloc((void**)&d_dx1,sizeof(real)*size_x1);
-	cudaCheckError();
-	cudaMemcpy(d_dx1,&grid->dx1[-NGHX1],sizeof(real)*size_x1,cudaMemcpyHostToDevice);
-	cudaCheckError();
-
-	cudaMalloc((void**)&d_dx2,sizeof(real)*size_x2);
-	cudaCheckError();
-	cudaMemcpy(d_dx2,&grid->dx2[-NGHX2],sizeof(real)*size_x2,cudaMemcpyHostToDevice);
-	cudaCheckError();
-
-	cudaMalloc((void**)&d_dx3,sizeof(real)*size_x3);
-	cudaCheckError();
-	cudaMemcpy(d_dx3,&grid->dx3[-NGHX3],sizeof(real)*size_x3,cudaMemcpyHostToDevice);
-	cudaCheckError();
-
-	cudaMalloc((void**)&d_x1,sizeof(real)*size_x1);
-	cudaCheckError();
-	cudaMemcpy(d_x1,&grid->xc1[-NGHX1],sizeof(real)*size_x1,cudaMemcpyHostToDevice);
-	cudaCheckError();
-
-	cudaMalloc((void**)&d_x2,sizeof(real)*size_x2);
-	cudaCheckError();
-	cudaMemcpy(d_x2,&grid->xc2[-NGHX2],sizeof(real)*size_x2,cudaMemcpyHostToDevice);
-	cudaCheckError();
-	cudaMalloc((void**)&d_x3,sizeof(real)*size_x3);
-	cudaCheckError();
-	cudaMemcpy(d_x3,&grid->xc3[-NGHX3],sizeof(real)*size_x3,cudaMemcpyHostToDevice);
-	cudaCheckError();
-
-	cudaMalloc((void**)&d_cons,sizeof(real)*ntot*nf);
-	cudaCheckError();
-	cudaMemcpy(d_cons,&grid->cons[-offset],sizeof(real)*ntot*nf,cudaMemcpyHostToDevice);
-	cudaCheckError();
-
-	cudaMalloc((void**)&d_intenergy,sizeof(real)*ntot);
-	cudaCheckError();
-	cudaMemcpy(d_intenergy,&grid->intenergy[-offset],sizeof(real)*ntot,cudaMemcpyHostToDevice);
-	cudaCheckError();
-
-	cudaMalloc((void**)&d_UL_1,sizeof(real)*ntot*nf);
-	cudaCheckError();
-
-	cudaMalloc((void**)&d_UR_1,sizeof(real)*ntot*nf);
-	cudaCheckError();
-
-	cudaMalloc((void**)&d_F_1,sizeof(real)*ntot*nf);
-	cudaCheckError();
-
-	cudaMalloc((void**)&d_UL_2,sizeof(real)*ntot*nf);
-	cudaCheckError();
-
-	cudaMalloc((void**)&d_UR_2,sizeof(real)*ntot*nf);
-	cudaCheckError();
-
-	cudaMalloc((void**)&d_F_2,sizeof(real)*ntot*nf);
-	cudaCheckError();
-
-	cudaMalloc((void**)&d_UL_3,sizeof(real)*ntot*nf);
-	cudaCheckError();
-
-	cudaMalloc((void**)&d_UR_3,sizeof(real)*ntot*nf);
-	cudaCheckError();
-
-	cudaMalloc((void**)&d_F_3,sizeof(real)*ntot*nf);
-	cudaCheckError();
-
-	cudaMalloc((void**)&d_dhalf,sizeof(real)*ntot);
-	cudaCheckError();
-
-
-	cudaMalloc((void**)&dt_arr,sizeof(real)*(grid->gridSize_reduc));
-	cudaCheckError();
-
-
-	cudaMalloc((void**)&nan_arr,sizeof(int)*(grid->gridSize_reduc));
-	cudaCheckError();
-
-
-
-   
-    
-    while (grid->time < end_time) { 
-    	/* Zero flux arrays */
-    	zero_flux_array<<<grid->gridSize_update_cons, grid->blockSize_update_cons>>>(d_F_1,d_F_2,d_F_3,ntot,nf);
-    	cudaCheckError();
-        /* Advance by dt */
-        algogas_single(dt, 
-            d_cons,
-            d_intenergy,
-            d_UL_1,
-            d_UR_1,
-            d_F_1,
-            d_UL_2,
-            d_UR_2,
-            d_F_2,
-            d_UL_3,
-            d_UR_3,
-		 	d_F_3,
-            d_dhalf,
-            d_dx1 + NGHX1,
-            d_dx2 + NGHX2,
-            d_dx3 + NGHX3,
-            d_x1  + NGHX1,
-            d_x2  + NGHX2,
-            d_x3  + NGHX3,
-            dt_arr,
-            blocks,
-            threads,
-            grid, params);
-    /* Set new timestep and bcs */
-        grid->time += dt;
-        dt_max = end_time - grid->time;
-        dt = set_bc_timestep(dt_max, 
-                d_cons,
-                d_intenergy,
-                d_dx1 + NGHX1,
-                d_dx2 + NGHX2,
-                d_dx3 + NGHX3,
-                d_x1  + NGHX1,
-                d_x2  + NGHX2,
-                d_x3  + NGHX3,
-                dt_arr,
-                nan_arr,
-                &nan_res,
-                grid,params);
-//        if (grid->time % history_dt == 0) {
-//        	volume_averages(d_cons,d_intnergy,)
-//        }
-        if (nan_res) {
-        	break;
-        }
-
-    }
-
-    /* Convert to prim */
-
-    cons_to_prim<<<grid->gridSize_update_cons, grid->blockSize_update_cons>>>(d_cons,d_intenergy,d_UL_1,params->gamma-1,
-    	 grid->nx[0],grid->nx[1],grid->nx[2], size_x1, size_x12, ntot, offset, nf);
-    cudaCheckError();
-
-    /* Copy to host */
-	cudaMemcpy(&grid->cons[-offset],d_cons,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
-    cudaCheckError();
-
-    cudaMemcpy(&grid->prim[-offset],d_UL_1,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
-    cudaCheckError();
-
-	cudaMemcpy(&grid->intenergy[-offset],d_intenergy,sizeof(real)*ntot,cudaMemcpyDeviceToHost);
-    cudaCheckError();
-
-    /* Free device arrays */
-    cudaFree(d_cons); cudaCheckError();
-    cudaFree(d_intenergy); cudaCheckError();
-    cudaFree(d_F_1); cudaCheckError();
-    cudaFree(d_UL_1); cudaCheckError();
-    cudaFree(d_UR_1); cudaCheckError();
-    cudaFree(d_F_2); cudaCheckError();
-    cudaFree(d_UL_2); cudaCheckError();
-    cudaFree(d_UR_2); cudaCheckError();
-    cudaFree(d_F_3); cudaCheckError();
-    cudaFree(d_UL_3); cudaCheckError();
-    cudaFree(d_UR_3); cudaCheckError();
-    cudaFree(d_dx1); cudaCheckError();
-    cudaFree(d_dx2); cudaCheckError();
-    cudaFree(d_dx3); cudaCheckError();
-    cudaFree(d_x1); cudaCheckError();
-    cudaFree(d_x2); cudaCheckError();
-    cudaFree(d_x3); cudaCheckError();
-    cudaFree(dt_arr); cudaCheckError();
-    cudaFree(d_dhalf); cudaCheckError();
-    cudaFree(nan_arr); cudaCheckError();
-
-    return nan_res ? -dt : dt;
-}
-real algogas_firststep(real dtout, int threads, int blocks, int restart, int nostep, GridCons *grid, Parameters *params) {
-    real end_time = grid->time + dtout;
-    real dt_max,dt;
-	int ntot = grid->ntot;
-	int size_x1 = grid->size_x1;
-	int size_x2 = grid->size_x2;
-	int size_x3 = grid->size_x3;
-	int nf = grid->nf;
-	int offset = grid->offset;
-
-	int nan_res;
-	real *d_cons, *d_intenergy;
-	real *d_F_1, *d_UL_1, *d_UR_1;
-	real *d_F_2, *d_UL_2, *d_UR_2;
-	real *d_F_3, *d_UL_3, *d_UR_3;
-	real *d_dx1, *d_dx2, *d_dx3;
-	real *d_x1, *d_x2, *d_x3;
-	real *dt_arr;
-	real *d_dhalf;
-	int *nan_arr;
-
-
-    cudaMalloc((void**)&d_dx1,sizeof(real)*size_x1);
-   	cudaCheckError();
-   	cudaMemcpy(d_dx1,&grid->dx1[-NGHX1],sizeof(real)*size_x1,cudaMemcpyHostToDevice);
-   	cudaCheckError();
-
-   	cudaMalloc((void**)&d_dx2,sizeof(real)*size_x2);
-   	cudaCheckError();
-   	cudaMemcpy(d_dx2,&grid->dx2[-NGHX2],sizeof(real)*size_x2,cudaMemcpyHostToDevice);
-   	cudaCheckError();
-
-   	cudaMalloc((void**)&d_dx3,sizeof(real)*size_x3);
-   	cudaCheckError();
-   	cudaMemcpy(d_dx3,&grid->dx3[-NGHX3],sizeof(real)*size_x3,cudaMemcpyHostToDevice);
-   	cudaCheckError();
-
-   	cudaMalloc((void**)&d_x1,sizeof(real)*size_x1);
-   	cudaCheckError();
-   	cudaMemcpy(d_x1,&grid->xc1[-NGHX1],sizeof(real)*size_x1,cudaMemcpyHostToDevice);
-   	cudaCheckError();
-
-   	cudaMalloc((void**)&d_x2,sizeof(real)*size_x2);
-   	cudaCheckError();
-   	cudaMemcpy(d_x2,&grid->xc2[-NGHX2],sizeof(real)*size_x2,cudaMemcpyHostToDevice);
-   	cudaCheckError();
-   	cudaMalloc((void**)&d_x3,sizeof(real)*size_x3);
-   	cudaCheckError();
-   	cudaMemcpy(d_x3,&grid->xc3[-NGHX3],sizeof(real)*size_x3,cudaMemcpyHostToDevice);
-   	cudaCheckError();
-
-   	cudaMalloc((void**)&d_cons,sizeof(real)*ntot*nf);
-   	cudaCheckError();
-   	cudaMemcpy(d_cons,&grid->cons[-offset],sizeof(real)*ntot*nf,cudaMemcpyHostToDevice);
-   	cudaCheckError();
-
-   	cudaMalloc((void**)&d_intenergy,sizeof(real)*ntot);
-   	cudaCheckError();
-   	cudaMemcpy(d_intenergy,&grid->intenergy[-offset],sizeof(real)*ntot,cudaMemcpyHostToDevice);
-   	cudaCheckError();
-
-   	cudaMalloc((void**)&d_UL_1,sizeof(real)*ntot*nf);
-   	cudaCheckError();
-
-   	cudaMalloc((void**)&d_UR_1,sizeof(real)*ntot*nf);
-   	cudaCheckError();
-
-   	cudaMalloc((void**)&d_F_1,sizeof(real)*ntot*nf);
-   	cudaCheckError();
-
-   	cudaMalloc((void**)&d_UL_2,sizeof(real)*ntot*nf);
-   	cudaCheckError();
-
-   	cudaMalloc((void**)&d_UR_2,sizeof(real)*ntot*nf);
-   	cudaCheckError();
-
-   	cudaMalloc((void**)&d_F_2,sizeof(real)*ntot*nf);
-   	cudaCheckError();
-
-   	cudaMalloc((void**)&d_UL_3,sizeof(real)*ntot*nf);
-   	cudaCheckError();
-
-   	cudaMalloc((void**)&d_UR_3,sizeof(real)*ntot*nf);
-   	cudaCheckError();
-
-   	cudaMalloc((void**)&d_F_3,sizeof(real)*ntot*nf);
-   	cudaCheckError();
-
-   	cudaMalloc((void**)&d_dhalf,sizeof(real)*ntot);
-   	cudaCheckError();
-
-
-   	cudaMalloc((void**)&dt_arr,sizeof(real)*(grid->gridSize_reduc));
-   	cudaCheckError();
-   	cudaMalloc((void**)&nan_arr,sizeof(int)*(grid->gridSize_reduc));
-   	cudaCheckError();
-
-
-	/* Zero flux arrays */
-   	printf("THREADS X BLOCKS = %d x %d\n",threads,blocks);
-   	zero_flux_array<<<grid->gridSize_update_cons, grid->blockSize_update_cons>>>(d_F_1,d_F_2,d_F_3,ntot,nf);
-   	cudaCheckError();
-
-    dt_max = end_time - grid->time;
-
-    /* Set new timestep and bcs */
-
-    dt = set_bc_timestep(dt_max, 
-        d_cons,
-        d_intenergy,
-        d_dx1 + NGHX1,
-        d_dx2 + NGHX2,
-        d_dx3 + NGHX3,
-        d_x1  + NGHX1,
-        d_x2  + NGHX2,
-        d_x3  + NGHX3,
-        dt_arr,
-        nan_arr,
-        &nan_res,
-        grid,params);
-
-    /* Take one step */
-    if (!nostep) {
-		algogas_single(dt,
-			d_cons,
-			d_intenergy,
-			d_UL_1,
-			d_UR_1,
-			d_F_1,
-			d_UL_2,
-			d_UR_2,
-			d_F_2,
-			d_UL_3,
-			d_UR_3,
-			d_F_3,
-			d_dhalf,
-			d_dx1 + NGHX1,
-			d_dx2 + NGHX2,
-			d_dx3 + NGHX3,
-			d_x1 + NGHX1,
-			d_x2 + NGHX2,
-			d_x3 + NGHX3,
-			dt_arr,
-			blocks,
-			threads,
-			grid, params);
-
-		grid->time += dt;
-		/* Get new timestep */
-		dt_max = end_time - grid->time;
-
-		dt = set_bc_timestep(dt_max,
-			d_cons,
-			d_intenergy,
-			d_dx1 + NGHX1,
-			d_dx2 + NGHX2,
-			d_dx3 + NGHX3,
-			d_x1  + NGHX1,
-			d_x2  + NGHX2,
-			d_x3  + NGHX3,
-			dt_arr,
-	        nan_arr,
-	        &nan_res,
-			grid,params);
-    }
-    else {
-    	grid->time += dt;
-    }
-    /* Copy results to host */
-    cons_to_prim<<<grid->gridSize_update_cons, grid->blockSize_update_cons>>>(d_cons,d_intenergy,d_UL_1,params->gamma-1,
-    	 grid->nx[0],grid->nx[1],grid->nx[2], size_x1, grid->size_x12, ntot, offset, nf);
-    cudaCheckError();
-
-
-	cudaMemcpy(&grid->cons[-offset],d_cons,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
-    cudaCheckError();
-
-    cudaMemcpy(&grid->prim[-offset],d_UL_1,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
-    cudaCheckError();
-
-
-	cudaMemcpy(&grid->intenergy[-offset],d_intenergy,sizeof(real)*ntot,cudaMemcpyDeviceToHost);
-    cudaCheckError();
-
-
-    /* Free device arrays */
-    cudaFree(d_cons); cudaCheckError();
-    cudaFree(d_intenergy);cudaCheckError();
-    cudaFree(d_F_1); cudaCheckError();
-    cudaFree(d_UL_1); cudaCheckError();
-    cudaFree(d_UR_1); cudaCheckError();
-    cudaFree(d_F_2); cudaCheckError();
-    cudaFree(d_UL_2); cudaCheckError();
-    cudaFree(d_UR_2); cudaCheckError();
-    cudaFree(d_F_3); cudaCheckError();
-    cudaFree(d_UL_3); cudaCheckError();
-    cudaFree(d_UR_3); cudaCheckError();
-    cudaFree(d_dx1); cudaCheckError();
-    cudaFree(d_dx2); cudaCheckError();
-    cudaFree(d_dx3); cudaCheckError();
-    cudaFree(d_x1); cudaCheckError();
-    cudaFree(d_x2); cudaCheckError();
-    cudaFree(d_x3); cudaCheckError();
-    cudaFree(dt_arr); cudaCheckError();
-    cudaFree(d_dhalf); cudaCheckError();
-    cudaFree(nan_arr); cudaCheckError();
-
-
-    return nan_res ? -dt : dt;
-}
-//}
 
 
 real set_bc_timestep(real dt_max, 
@@ -978,12 +543,13 @@ real set_bc_timestep(real dt_max,
 //        //printf("%lg\t%lg\t%lg\n",cs,dt1,curr_min);
 //        if (dt1 < curr_min) curr_min = dt1;
 //	}
+ //   printf("dt_max %lg \n",dt_max);
 
+//    if (dt > dt_max) dt = dt_max;
     if (dt < DTMIN){
         printf("Timestep %.4e fell below minimum value of %.1e\n",dt,DTMIN);
         exit(0);
     }
-    if (dt > dt_max) dt = dt_max;
 
 
 
@@ -1061,3 +627,14 @@ __global__ void nancheck_kernel(real *cons, int *out, int ntot,int nf) {
     return;
 }
 
+
+__global__ void zero_flux_array(real *F1, real *F2, real *F3, int ntot, int nf) {
+	for(int indx = blockIdx.x*blockDim.x + threadIdx.x; indx<ntot; indx+=blockDim.x*gridDim.x) {
+		for(int n=0;n<nf;n++) {
+			F1[indx + n*ntot] = 0.;
+			F2[indx + n*ntot] = 0.;
+			F3[indx + n*ntot] = 0.;
+		}
+	}
+	return;
+}

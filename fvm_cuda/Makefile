@@ -1,5 +1,5 @@
 EXECUTABLE=fvmcuda
-CUSOURCES=prob.cu algogas.cu reconstruct.cu riemann.cu update.cu exact.cu hllc.cu anrs.cu boundary.cu calc_dt.cu source.cu conduction.cu viscosity.cu config.cu
+CUSOURCES=prob.cu algogas.cu reconstruct.cu riemann.cu update.cu exact.cu hllc.cu anrs.cu boundary.cu calc_dt.cu source.cu conduction.cu viscosity.cu config.cu driver.cu
 SOURCES=allocate.c output.c read_pars.c fvm.c 
 HEADER=prob.h defs.h structs.h prototypes.h cuda_defs.h 
 

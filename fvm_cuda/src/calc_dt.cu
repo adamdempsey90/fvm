@@ -42,7 +42,7 @@ __global__ void timestep_kernel(real *cons, real *dx1, real *dx2,real *dx3, real
             dt2 = dx2[j]/(fabs(cons[indx + 2*ntot]/cons[indx]) + cs);
 #endif
 #ifdef DIMS3
-            dt3 = dx3[j]/(fabs(cons[indx + 3*ntot]/cons[indx]) + cs);
+            dt3 = dx3[k]/(fabs(cons[indx + 3*ntot]/cons[indx]) + cs);
 #endif
 
             dt = MIN3(dt1,dt2,dt3);

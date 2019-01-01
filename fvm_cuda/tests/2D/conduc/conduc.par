@@ -10,13 +10,15 @@ x1_max = 1.
 x2_min = 0.
 x2_max = 1.
 
-tend = 50.
-Nout = 10 
 
 kappa = .01
 flux = 1.
 Tlower = 1000.
 g = .1
 
-outputname = out/test
+tend = 50.
+Nout0d = 1000
+Nout2d = 10
+outputdir = out/
+outputname = test
 

@@ -451,4 +451,220 @@ The full algorithm is,
 
 \end{enumerate}
 
+\section{Reconstructions}
+\subsection{PCM}
+\subsection{PLM}
+\subsubsection{Without characteristics}
+
+\begin{enumerate}
+ \item Compute differences in primitive variables, 
+ \begin{equation}
+  \Delta q_L = q_{i} - q_{i-1} \qquad \Delta q_R = q_{i+1} - q_i
+ \end{equation}
+ where $w_i$ is a primitive variable at cell $i$. 
+ The centered difference is the average of the left and right differences, $\Delta q_C = (\Delta q_L + \Delta q_R)/2$. 
+ 
+ \item Limit the slopes such that the face values are,
+ \begin{equation}
+  q_{L,R} = q_i \mp \frac{1}{2} \phi(r_i) \Delta q_R
+ \end{equation}
+ where $r = \Delta q_L/\Delta q_R$ and $\phi(r)$ is the generalized minmod limiter,
+ \begin{equation}
+  \phi(r) = {\rm max}\left(0, {\rm min}\left(\theta r, \frac{1}{2} (r +1), \theta \right) \right)
+ \end{equation}
+ where $1 \le \theta \le 2$ is a parameter which is more dissipative for higher values. 
+ In the limit of $\Delta_R =0$, $r\rightarrow \infty$ and $\phi \rightarrow \theta$. 
+ 
+ \item The face values, $q_{L,R}$, are then evolved for half of a timestep, 
+ \begin{equation}
+    q_{L,R} = q_{L,R} + \frac{\Delta t}{2 \Delta x} \left( F(q_L) - F(q_R) \right)  
+ \end{equation}
+
+
+\end{enumerate}
+
+
+
+\subsubsection{With characteristics}
+The eigenvalues are $\lambda = (u-c_s, u,u,u,u + c_s)$ and the left and right eigenmatrices are,
+\begin{equation}
+ \mathbf{L} = 
+ \begin{pmatrix}
+  0 & - \rho/(2 c_s) & 0 & 0 & 1/(2 c_s^2) \\ 
+  1 & 0 & 0 & 0 & -1/c_s^2 \\
+  0 & 0 & 1 & 0 & 0 \\
+  0 & 0 & 0 & 1 & 0 \\
+  0 & \rho/(2 c_s) & 0 & 0 & 1/(2 c_s^2)\\
+ \end{pmatrix}
+ \qquad
+ \mathbf{R} = 
+ \begin{pmatrix}
+  1         & 1 & 0 & 0 & 1 \\ 
+  -c_s/\rho & 0 & 0 & 0 & c_s/\rho \\
+  0         & 0 & 1 & 0 & 0 \\
+  0         & 0 & 0 & 1 & 0 \\
+  c_s^2     & 0 & 0 & 0 & c_s^2 \\
+ \end{pmatrix}
+\end{equation}
+
+\begin{enumerate}
+ \item Compute differences in primitive variables, 
+ \begin{equation}
+  \Delta q_L = q_{i} - q_{i-1} \qquad \Delta q_R = q_{i+1} - q_i
+ \end{equation}
+ where $w_i$ is a primitive variable at cell $i$. 
+ The centered difference is the average of the left and right differences, $\Delta q_C = (\Delta q_L + \Delta q_R)/2$. 
+ 
+ \item Project the differences into differences of the characteristics, $\xi$. 
+ \begin{equation}
+    \delta \xi_{L,R} = 
+    \begin{pmatrix}
+     -0.5 \left( \rho_i \Delta u_{L,R} / c_s - \Delta p_{L,R} /c_s^2 \right) \\
+     \Delta \rho_{L,R} - \Delta p_{L,R} /c_s^2 \\
+     \Delta v_{L,R} \\ 
+     \Delta w_{L,R} \\ 
+    0.5 \left( \rho_i \Delta u_{L,R} / c_s + \Delta p_{L,R} /c_s^2 \right) \\
+    \end{pmatrix}
+ \end{equation}
+Note that the $\delta \xi_C = (\delta \xi_L + \delta \xi_R)/2$. 
+
+\item Limit the differenes to obtain $\delta \xi$. Use the same general minmod limiter with $\theta = 2$. 
+
+\item Given the limited characteristic differences project back to the primitive differences,
+\begin{equation}
+ \Delta q = 
+ \begin{pmatrix}
+    \delta \xi_0 + \delta \xi_1 + \delta \xi_4 \\
+    (c_s/\rho) ( \delta \xi_4 - \delta \xi_0) \\
+    \delta \xi_2  \\
+    \delta \xi_3 \\
+    c_s^2 ( \delta \xi_0 + \delta \xi_4 ) \\
+ \end{pmatrix}
+\end{equation}
+Note that the transverse velocities and passive scalars are limited in the same way as PLM without characteristics, so in practice the characteristic differences for these quantities do not need to be stored in memory. 
+
+\item Given the limited primitive slopes, use linear interpolation to calculate the face values, 
+\begin{equation}
+    q_{L,R} = q_i \mp \frac{1}{2} \Delta q \\
+\end{equation}
+where the minus sign is for the left face. 
+
+\item To ensure the face values lie between $q_{i-1}$, $q_i$, and $q_{i+1}$, they are limited again,
+\begin{align}
+    q_L &= {\rm min}( {\rm max}(q_i,q_{i-1}), {\rm max}({\rm min}(q_i,q_{i-1}), q_L)) \\ 
+    q_R &= {\rm min}( {\rm max}(q_i,q_{i+1}), {\rm max}({\rm min}(q_i,q_{i+1}), q_R)) \\ 
+\end{align}
+\item Given the limited face values, the final primitive difference is,
+\begin{equation}
+ \Delta q = q_R - q_L
+\end{equation}
+\item Given $\Delta q$, the primitives are evolved for half of a timestep in a predictor-corrector fashion. 
+For the preditor step, we evolve with the minimum and maximum wave speeds, 
+\begin{align}
+ q_L^* = q_L + \frac{\Delta t}{2 \Delta x} {\rm min}(\lambda_{\rm min}, 0) \Delta q \\
+ q_R^* = q_R - \frac{\Delta t}{2 \Delta x} {\rm max}(\lambda_{\rm max}, 0) \Delta q
+\end{align}
+where $\lambda_{\rm min,max}$ are the minimum and maximum wave speeds. 
+The corrector step removes contributions from waves which do not reach the faces in half of a timestep, 
+\begin{align}
+ w_R = w_R^*  + 
+ \alpha_- \left( -\frac{\rho \Delta u}{2 c_s} + \frac{\Delta p}{2 c_s^2} \right) 
+ \begin{pmatrix}
+  1 \\ -c_s/\rho \\ 0 \\ 0 \\ c_s^2
+ \end{pmatrix}
+  +\alpha_0 
+ \begin{pmatrix}
+  \Delta \rho - \Delta p/c_s^2 \\ 0 \\ \Delta v \\ \Delta w \\ 0
+ \end{pmatrix}
+ +\alpha_+ \left( \frac{\rho \Delta u}{2 c_s} + \frac{\Delta p}{2 c_s^2} \right) 
+ \begin{pmatrix}
+  1 \\ c_s/\rho \\ 0 \\ 0 \\ c_s^2
+ \end{pmatrix}
+\end{align}
+where $\alpha_{0,\pm} = \Delta t/(2 \Delta x) (\lambda_{\rm max} - \lambda_{0,\pm})$ and $w_R = (\rho_R, u_R, v_R, w_R, p_R)$.
+Terms are only included if their corresponding $\lambda > 0$.
+The left face is the same, but with $\lambda_{\rm max} \rightarrow \lambda_{\rm min}$ and only terms with $\lambda<0$ included. 
+Note that $\lambda_\pm$ will always be opposite signs (unless $u=c_s$ in which case $\lambda_- =0$ and $\lambda_+ > 0$), so only one needs to be included. 
+If the HLL/C Riemann solver is used, then \emph{all} waves with non-zero wavespeeds are added. 
+
+\item The final $w_{L,R}$ values are converted to their conservative values.
+
+\end{enumerate}
+
+
+
+
+\subsection{PPM}
+
+\subsubsection{With characteristics}
+
+
+\begin{enumerate}
+ \item The first steps are the same as steps 1.-4. from PLM. 
+These steps are done for both cell $i$, cell $i-1$, and cell $i+1$, so that at the end of the steps we have three primitive differences, $\Delta q_i, \Delta q_{i-1}, \Delta q_{i+1}$. 
+This necessarily requires information from cells $i-2$ and $i+2$. 
+
+\item Instead of linear interpolation we use parabolic interpolation to estimate the left and right face values of cell $i$,
+\begin{align}
+ q_L &= \frac{q_i + q_{i-1}}{2} - \frac{\Delta q_i + \Delta q_{i-1}}{6} \\
+ q_R &= \frac{q_i + q_{i+1}}{2} - \frac{\Delta q_i + \Delta q_{i+1}}{6}
+\end{align}
+
+\item Next, limit these face values so that they lie between the neighboring values. 
+
+\item These are limited with three conditions,
+\begin{align}
+\begin{cases}
+ q_L = q_R = q_i & (q_R - q_i) (q_i - q_L) \le 0 \\
+ q_L = 3 q_i - 2 q_R & (q_R - q_L) (q_L - (3 q_i - 2 q_R)) < 0 \\
+ q_R = 3 q_i - 2 q_L & (q_R - q_L) ( 3 q_i - 2 q_L - q_R) < 0 
+ \end{cases}
+\end{align}
+and then the results are limited again with the minmod limiter from PLM, 
+\begin{align}
+    q_L &= {\rm min}( {\rm max}(q_i,q_{i-1}), {\rm max}({\rm min}(q_i,q_{i-1}), q_L)) \\ 
+    q_R &= {\rm min}( {\rm max}(q_i,q_{i+1}), {\rm max}({\rm min}(q_i,q_{i+1}), q_R)) \\ 
+\end{align}
+These interpolated face values then define the new slope, $\Delta q = q_R-q_L$. 
+
+\item The face values are evolved in time with a predictor-corrector scheme as in PLM. 
+The prediction step is,
+\begin{align}
+ q_L^* &= q_L - \frac{1}{2} \alpha_{\rm min} \left[ \Delta q + q_6 \left(1 + \frac{2}{3} \alpha_{\rm min} \right) \right] \\ 
+  q_R^* &= q_R - \frac{1}{2} \beta_{\rm max} \left[ \Delta q - q_6 \left(1 - \frac{2}{3} \beta_{\rm max} \right) \right] \\ 
+\end{align}
+where $q_6 = 6 q_i + 3 \Delta q$.
+
+
+\end{enumerate}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 \end{document}

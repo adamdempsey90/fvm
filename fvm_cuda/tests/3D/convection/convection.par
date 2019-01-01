@@ -16,7 +16,6 @@ x3_min = -1
 x3_max = 2.
 
 tend = 50.
-Nout = 50 
 
 Ftot = 1e-1
 xi = 3.
@@ -28,5 +27,8 @@ g = 1.
 minF = .1
 ksmooth = .05
 
-outputname = out/test
+Nout0d = 1000
+Nout3d = 50
+outputdir = out/
+outputname = test
 

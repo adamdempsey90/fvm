@@ -11,7 +11,6 @@ x2_min = 0.
 x2_max = 2.
 
 tend = 50
-Nout = 50 
 
 
 kappa = .01
@@ -20,5 +19,8 @@ g = .1
 Tlower = 1000.
 Tupper = 100.
 
-outputname = out/test
+Nout0d = 1000
+Nout2d = 50
+outputdir = out/
+outputname = test
 

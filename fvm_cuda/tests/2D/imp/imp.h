@@ -13,9 +13,9 @@
 //#define CONDUCTION
 
 
-//#define EXACT
+#define EXACT
 
 
 //#define HLL
-#define HLLC
+//#define HLLC
 

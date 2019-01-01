@@ -1,15 +1,17 @@
 #include "defs.h"
 #include "cuda_defs.h"
 #include <ctype.h>
+#include <time.h>
 
 
-void default_pars(Parameters *params);
 void cons_to_prim_grid(GridCons *grid, Parameters *params);
 
 
 
 
 int main(int argc, char *argv[]) {
+    struct timespec tic, toc; 
+    double elapsed_sec;
     int Nout, step;
     int threads, blocks;
     int restart = FALSE;
@@ -18,6 +20,9 @@ int main(int argc, char *argv[]) {
     char parfile[512];
     char restartfile[512];
 
+    
+
+    clock_gettime(CLOCK_MONOTONIC, &tic);
 
 
     GridCons *grid = (GridCons *)malloc(sizeof(GridCons));
@@ -124,14 +129,13 @@ int main(int argc, char *argv[]) {
 
     }
 
-    Nout = params->nout;
-    step = 0;
-    real dtout = (params->tend - grid->time)/(float)Nout;
-    real dt_curr;
-    
+
+
     config_kernels(&threads,&blocks,grid,params);
-    //set_threads_blocks(grid->ntot,&threads,&blocks);
+
+
 #ifndef SILENT
+
     printf("Outputting results to %s\n",params->outputname);
 
     size_t totbytes = sizeof(real)*(7*(grid->ntot)*(grid->nf) // cons, flux, UL/R
@@ -145,90 +149,51 @@ int main(int argc, char *argv[]) {
     printf("%.2f GB will be used on device\n",totbytes/(real)1e9);
     printf("Threads %d, Blocks %d\n",threads,blocks);
     fflush(stdout);
+
 #endif
-
-#ifndef PROF
-    output(step,grid,params);
-#endif
-
-   dt_curr = algogas_firststep(params->tend,threads, blocks,restart,nostep,grid,params);
-
+    
     if (onestep) {
+        params->maxsteps = 0;
 #ifndef SILENT
         printf("Executing one step then exiting.\n");
-#endif
-        step += 1;
-#ifndef SILENT
-        printf("Output %d at t=%.2e\n",step,grid->time);
-#endif
-#ifndef PROF
-        output(step,grid,params); // Output
-#endif
         fflush(stdout);
+#endif
+    }
 
+    driver(grid,params);
+
+
+
+    clock_gettime(CLOCK_MONOTONIC, &toc);
+    elapsed_sec = (double)(toc.tv_sec - tic.tv_sec) + 1e-9*(toc.tv_nsec-tic.tv_nsec);
+
+#ifndef SILENT
+    int hrs,mins;
+    double secs;
+    printf("Total execution time of ");
+    if (elapsed_sec < 60.) {
+        printf("%.2fs\n",elapsed_sec);
+    }
+    else if (elapsed_sec< 3600.) {
+        mins = (int)(elapsed_sec/60.);
+        secs = elapsed_sec - 60.*mins;
+        printf("%dm%.2fs\n",mins,secs);
     }
     else {
-#ifndef SILENT
-        printf("Evolving from %.2e to %.2e\n",grid->time,params->tend);
-#endif
-        fflush(stdout);
-        for(step=1;step<=Nout;step++) {
-            // Evolve for a time of dtout
-            dt_curr = algogas_dt(dt_curr, dtout,threads, blocks,grid,params);
-            if (dt_curr < 0) {
-            	printf("NaN detected in domain!\n");
-            	fflush(stdout);
-            	exit(-1);
-            }
-
-#ifndef SILENT
-            printf("Output %d at t=%.2e\n",step,grid->time);
-#endif
-#ifndef PROF
-            output(step,grid,params); // Output
-#endif
-           fflush(stdout);
-        }
+        hrs = (int)(elapsed_sec/3600.);
+        mins = (int)((elapsed_sec - 3600*hrs)/60.);
+        secs = elapsed_sec - 60.*mins - 3600*hrs;
+        printf("%dh%dm%.2fs\n",hrs,mins,secs);
     }
-
-
-
-#ifndef SILENT
     printf("Exiting.\n");
-#endif
     fflush(stdout);
+#endif
 
 
     return 0;
 
 }
 
-void default_pars(Parameters *params) {
-    params->nx1 = 128;
-    params->nx2 = 1;
-    params->nx3 = 1;
-    params->nscalars = 0;
-    params->gamma = 1.4;
-    params->cfl = .2;
-
-    params->x1_min = 0.;
-    params->x1_max = 1;
-
-    params->x2_min = 0.;
-    params->x2_max = 1;
-
-    params->x3_min = 0.;
-    params->x3_max = 1;
-
-
-    params->tend = .3;
-    params->nout = 10;
-    params->hout = 1000;
-
-
-    strcpy(params->outputname ,"out/default");
-
-}
 
 void cons_to_prim_grid(GridCons *grid, Parameters *params) {
 	int indx,n;

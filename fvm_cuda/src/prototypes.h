@@ -5,7 +5,10 @@ void init_mesh(GridCons *grid, Parameters *params);
 extern "C" {
 real algogas_dt(real dt,real dtout, int threads, int blocks, GridCons *grid, Parameters *params);
 real algogas_firststep(real dtout, int threads, int blocks, int restart, int nostep, GridCons *grid, Parameters *params);
-void output(int step, GridCons *grid, Parameters *params);
+void snapshot(char *name, GridCons *grid, Parameters *params);
+void snapshot_1d(char *name, GridCons *grid, Parameters *params);
+void snapshot_2d(char *name, GridCons *grid, Parameters *params);
+void snapshot_3d(char *name, GridCons *grid, Parameters *params);
 void read_restart(const char *fname, GridCons *grid, Parameters *params);
 void allocate(GridCons *grid, Parameters *params);
 void init_uniform_mesh(GridCons *grid, Parameters *params);

@@ -1,7 +1,13 @@
 #include "defs.h"
 #include "cuda_defs.h"
 
+
+#ifdef PPM
+#define SLOPETHETA 2.
+#else
 #define SLOPETHETA 1.
+#endif
+
 
 __device__ __inline__ real slope_limiter(real slopeL, real slopeR) {
     if (fabs(slopeR) < PRESSUREFLOOR) return  SLOPETHETA;
@@ -10,10 +16,15 @@ __device__ __inline__ real slope_limiter(real slopeL, real slopeR) {
 }
 
 
-__global__ void plm(real *cons, real *UL, real *UR, real *dx,
+
+
+#ifdef PCM
+__global__ void reconstruct(real *cons, real *UL, real *UR, real *dx,
         int dir1,int nx1, int nx2, int nx3, int size_x1, int size_x12,
         int nf,int ntot, int offset, real g1, real dt) {
-
+	/*
+	 * Piecewise constant reconstruction
+	 */
     int i,j,k,n,indx,indxm,indxp;
     int il, iu, jl, ju, kl, ku;
     real dL, uL, uL2,uL3,pL,eL,sL;
@@ -22,9 +33,9 @@ __global__ void plm(real *cons, real *UL, real *UR, real *dx,
     real dLi,dCi,dRi, dLf, uLf, dRf, uRf;
     real dxm, dxc, dxp;
     real slopeL,slopeR,ke,r, fl,fr;
-    real dtdx; 
+    real dtdx;
     int dir2, dir3;
-    /* 1->2->3 
+    /* 1->2->3
      * 2->3->1
      * 3->1->2
      */
@@ -46,7 +57,71 @@ __global__ void plm(real *cons, real *UL, real *UR, real *dx,
 		jl = -NGHX2; ju = nx2+NGHX2;
 		kl = -2; ku = nx3 + 2;
     }
-    
+
+    for(indx = blockIdx.x*blockDim.x + threadIdx.x; indx<ntot; indx+=blockDim.x*gridDim.x) {
+    	unpack_indices(indx,&i,&j,&k,size_x1,size_x12);
+        if ((i>=il)&&(i<iu)&&(j>=jl)&&(j<ju)&&(k>=kl)&&(k<ku)) {
+            if (dir1 == 1) {
+                indxm = indx - 1 ; // (i-1,j,k)
+            }
+            else if (dir1 == 2) {
+                indxm = indx - size_x1;
+            }
+            else {
+            	indxm = indx - size_x12;
+            }
+            for(n=0;n<nf;n++) {
+                UL[indx + n*ntot] = cons[indx + n*ntot];
+                UR[indxm + n*ntot] = cons[indx + n*ntot];
+            }
+
+        }
+    }
+    return;
+}
+#endif
+
+
+#ifdef PLM
+__global__ void reconstruct(real *cons, real *UL, real *UR, real *dx,
+        int dir1,int nx1, int nx2, int nx3, int size_x1, int size_x12,
+        int nf,int ntot, int offset, real g1, real dt) {
+	/*
+	 * Piecewise linear reconstruction
+	 */
+    int i,j,k,n,indx,indxm,indxp;
+    int il, iu, jl, ju, kl, ku;
+    real dL, uL, uL2,uL3,pL,eL,sL;
+    real dC,uC,uC2,uC3,pC,eC,sC;
+    real dR,uR,uR2,uR3,pR,eR,sR;
+    real dLi,dCi,dRi, dLf, uLf, dRf, uRf;
+    real dxm, dxc, dxp;
+    real slopeL,slopeR,ke,r, fl,fr;
+    real dtdx;
+    int dir2, dir3;
+    /* 1->2->3
+     * 2->3->1
+     * 3->1->2
+     */
+    dir2 = (dir1)%3 + 1;
+    dir3 = (dir2)%3 + 1;
+
+    if (dir1 == 1) {
+        il = -2; iu = nx1+2;
+        jl = -NGHX2; ju = nx2+NGHX2;
+        kl = -NGHX3; ku = nx3 + NGHX3;
+    }
+    else if (dir1 == 2) {
+        il = -NGHX1; iu = nx1+NGHX1;
+        jl = -2; ju = nx2+2;
+        kl = -NGHX3; ku = nx3 + NGHX3;
+    }
+    else {
+    	il = -NGHX1; iu = nx1+NGHX1;
+		jl = -NGHX2; ju = nx2+NGHX2;
+		kl = -2; ku = nx3 + 2;
+    }
+
     for(indx = blockIdx.x*blockDim.x + threadIdx.x; indx<ntot; indx+=blockDim.x*gridDim.x) {
     	unpack_indices(indx,&i,&j,&k,size_x1,size_x12);
         if ((i>=il)&&(i<iu)&&(j>=jl)&&(j<ju)&&(k>=kl)&&(k<ku)) {
@@ -71,14 +146,6 @@ __global__ void plm(real *cons, real *UL, real *UR, real *dx,
             	dxc = dx[k];
             	dxp = dx[k+1];
             }
-#ifdef PCM
-            for(n=0;n<nf;n++) {
-                UL[indx + n*ntot] = cons[indx + n*ntot];
-                UR[indxm + n*ntot] = cons[indx + n*ntot];
-            }
-
-#endif
-#ifdef PLM
             dtdx = .5*dt/dxc;
             dL  = cons[indxm + 0*ntot];
             dLi = dL;
@@ -115,8 +182,8 @@ __global__ void plm(real *cons, real *UL, real *UR, real *dx,
 
             /* Density */
 
-            slopeR = (dR-dC) * 2./(dxc + dxp); 
-            slopeL = (dC-dL) * 2./(dxc + dxm); 
+            slopeR = (dR-dC) * 2./(dxc + dxp);
+            slopeL = (dC-dL) * 2./(dxc + dxm);
 
             r = slope_limiter(slopeL,slopeR);
             dL = dC - .5*dxc * r * slopeR;
@@ -127,8 +194,8 @@ __global__ void plm(real *cons, real *UL, real *UR, real *dx,
             dRf = dR;
 
             /* ux1 */
-            slopeR = (uR-uC) * 2./(dxc + dxp); 
-            slopeL = (uC-uL) * 2./(dxc + dxm); 
+            slopeR = (uR-uC) * 2./(dxc + dxp);
+            slopeL = (uC-uL) * 2./(dxc + dxm);
 
             r = slope_limiter(slopeL,slopeR);
             uL = uC - .5*dxc * r * slopeR;
@@ -136,26 +203,26 @@ __global__ void plm(real *cons, real *UL, real *UR, real *dx,
 
             uLf = uL;
             uRf = uR;
-            
+
             /* ux2 */
-            slopeR = (uR2-uC2) * 2./(dxc + dxp); 
-            slopeL = (uC2-uL2) * 2./(dxc + dxm); 
+            slopeR = (uR2-uC2) * 2./(dxc + dxp);
+            slopeL = (uC2-uL2) * 2./(dxc + dxm);
 
             r = slope_limiter(slopeL,slopeR);
             uL2 = uC2 - .5*dxc * r * slopeR;
             uR2 = uC2 + .5*dxc * r * slopeR;
-            
+
             /* ux3 */
-            slopeR = (uR3-uC3) * 2./(dxc + dxp); 
-            slopeL = (uC3-uL3) * 2./(dxc + dxm); 
+            slopeR = (uR3-uC3) * 2./(dxc + dxp);
+            slopeL = (uC3-uL3) * 2./(dxc + dxm);
 
             r = slope_limiter(slopeL,slopeR);
             uL3 = uC3 - .5*dxc * r * slopeR;
             uR3 = uC3 + .5*dxc * r * slopeR;
 
             /* pres */
-            slopeR = (pR-pC) * 2./(dxc + dxp); 
-            slopeL = (pC-pL) * 2./(dxc + dxm); 
+            slopeR = (pR-pC) * 2./(dxc + dxp);
+            slopeL = (pC-pL) * 2./(dxc + dxm);
 
             r = slope_limiter(slopeL,slopeR);
             pL = pC - .5*dxc * r * slopeR;
@@ -220,8 +287,8 @@ __global__ void plm(real *cons, real *UL, real *UR, real *dx,
                 sR = cons[indxp + n*ntot]/dRi;
                 sL = cons[indxm + n*ntot]/dLi;
                 sC = cons[indx + n*ntot]/dCi;
-                slopeR = (sR-sC) * 2./(dxc + dxp); 
-                slopeL = (sC-sL) * 2./(dxc + dxm); 
+                slopeR = (sR-sC) * 2./(dxc + dxp);
+                slopeL = (sC-sL) * 2./(dxc + dxm);
                 r = slope_limiter(slopeL,slopeR);
                 sL = sC - .5*dxc * r * slopeR;
                 sR = sC + .5*dxc * r * slopeR;
@@ -238,10 +305,13 @@ __global__ void plm(real *cons, real *UL, real *UR, real *dx,
                 UR[indxm + n*ntot] = sL;
 
             }
-#endif
         }
     }
 
     return;
 }
+#endif
+
+
+
 

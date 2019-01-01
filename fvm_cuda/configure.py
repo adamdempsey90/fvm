@@ -1,22 +1,41 @@
 #!/usr/bin/env python
 from __future__ import print_function
-default_pars = {'nx1': int,
-        'nx2': int,
-        'nx3': int,
-        'nscalars': int,
-        'gamma' : float,
-        'cfl' : float,
-        'x1_min': float,
-        'x1_max': float,
-        'x2_min': float,
-        'x2_max': float,
-        'x3_min': float,
-        'x3_max' : float,
-        'tend' : float,
-        'Nout' : int,
-        'Hout' : int,
-        'outputname': str}
+default_pars = {'nx1': (int,128),
+        'nx2': (int,1),
+        'nx3': (int,1),
+        'nscalars': (int,0),
+        'gamma' : (float,1.4),
+        'cfl' : (float,.2),
+        'x1_min': (float,0.),
+        'x1_max': (float,1.),
+        'x2_min': (float,0.),
+        'x2_max': (float,1.),
+        'x3_min': (float,0.),
+        'x3_max' : (float,1.),
+        'tend' : (float,1.),
+        'nout0d' : (int,-1),
+        'nout1d' : (int,-1),
+        'nout2d' : (int,-1),
+        'nout3d' : (int,-1),
+        'maxsteps' : (int,"1e64"),
+        'outputdir' : (str,'out/'),
+        'outputname': (str,'fld')}
 
+
+def default_lines():
+
+    lines = "void default_pars(Parameters *params) {\n"
+    for key,val in default_pars.items():
+        t,default = val
+        if key == 'maxsteps':
+            lines += "    params->{} = (long long int){};\n".format(key,str(default))
+        elif t != str:
+            lines += "    params->{} = {};\n".format(key,str(default))
+        else:
+            lines += '    strcpy(params->{},"{}");\n'.format(key,default)
+
+    lines += '\n}\n'
+    return lines
 
 def determine_type(val):
     import ast
@@ -30,6 +49,7 @@ def determine_type(val):
 def load_par_file(fname):
     with open(fname,'r') as f:
         lines = [[y.strip() for y in x.split('=')] for x in f.readlines() if x[0]!='#' and len(x.strip())>0 and '=' in x]
+    lines = [ [x[0].lower(), x[1]] for x in lines ]
     return lines
 def read_defs_file(fname):
     with open(fname,'r') as f:
@@ -38,6 +58,16 @@ def read_defs_file(fname):
 
 
 def create_int_block(key,first=False):
+    if key == 'maxsteps':
+        if first:
+            out = r"""    if"""
+        else:
+            out = r"""    else if"""
+        out += """ (strcmp(name,"{}")==0) """.format(key)
+        out += """ { params->""" + key + """= (long long int)double_val; PRINT_DOUBLE(name,double_val); }
+        """
+        return out
+
     if first:
         out = r"""    if"""
     else:
@@ -95,7 +125,8 @@ void set_var(char *name,int int_val, double double_val, int bool_val, char *str_
     float_blocks=[]
     str_blocks = []
     for i,line in enumerate(default_pars.items()):
-        key,t = line
+        key,val = line
+        t,default = val
         key = key.lower()
         kargs = {'first': False}
         if t is int:
@@ -111,6 +142,8 @@ void set_var(char *name,int int_val, double double_val, int bool_val, char *str_
             print('{} has no type! Given type '.format(key),t)
     for i,line in enumerate(lines):
         key,val = line
+        key = key.lower()
+        print(line, key, val)
         if key not in default_pars:
             key = key.lower()
             t = determine_type(val)
@@ -205,16 +238,22 @@ void read_param_file(char *fname, int argc, char *argv[], Parameters *params) {
 
     """
 
+    output += default_lines()
+
     with open(fname,'w') as f:
         f.write(output)
 
 def create_struct(lines):
     out_lines = ['#ifdef ISFLOAT\n#define real float\n#else\n#define real double\n#endif\n',
             'typedef struct Parameters {']
-    for key,t in default_pars.items():
+    for key,val in default_pars.items():
         key = key.lower()
+        t,default = val
         if t is int or t is bool:
-            out_lines.append('\tint {};'.format(key))
+            if key == 'maxsteps':
+                out_lines.append('\tlong long int {};'.format(key))
+            else:
+                out_lines.append('\tint {};'.format(key))
         elif t is float:
             out_lines.append('\treal {};'.format(key))
         elif t is str:
@@ -240,6 +279,7 @@ def create_struct(lines):
 
 
     out_lines.append('void read_param_file(char *fname, int argc, char *argv[], Parameters *params);\n')
+    out_lines.append('void default_pars(Parameters *params);\n')
 
     return out_lines
 
