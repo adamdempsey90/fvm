@@ -18,6 +18,27 @@
 #define GINDEX(i,j,k) ( (offset) + (i) + (j)*size_x1 + (k)*size_x12)
 
 
+#ifdef DIMS3
+#define VOL(i,j,k) dx1[i]*dx2[j]*dx3[k]
+#define AREA_12(i,j,k) dx1[i]*dx2[j]
+#define AREA_13(i,j,k) dx1[i]*dx3[k]
+#define AREA_23(i,j,k) dx2[j]*dx3[k]
+#else
+#ifdef DIMS2
+#define VOL(i,j,k) dx1[i]*dx2[j]
+#define AREA_12(i,j,k) dx1[i]
+#define AREA_13(i,j,k) dx1[i]
+#define AREA_23(i,j,k) dx2[j]
+
+#else
+#define VOL(i,j,k) dx1[i]
+#define AREA_12(i,j,k) 1 
+#define AREA_13(i,j,k) 1 
+#define AREA_23(i,j,k) 1 
+#endif
+#endif
+
+
 
 
 __inline__ __device__ void unpack_indices(int indx, int *i, int *j, int *k, int size_x1, int size_x12) {

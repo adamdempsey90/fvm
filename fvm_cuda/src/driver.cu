@@ -324,7 +324,7 @@ void driver(GridCons *grid, Parameters *params) {
             remove("DUMP");
         }
 
-        /* Convet to primitives */
+        /* Convert to primitives */
 
         cons_to_prim<<<grid->gridSize_update_cons, grid->blockSize_update_cons>>>(d_cons,d_intenergy,d_UL_1,params->gamma-1,
     	 grid->nx[0],grid->nx[1],grid->nx[2], size_x1, grid->size_x12, ntot, offset, nf);
@@ -337,7 +337,7 @@ void driver(GridCons *grid, Parameters *params) {
         }
         if (grid->time >= t_1d) {
 #ifndef DIMS2
-            /* 1d outputs */
+            /* 1d outputs are snapshots*/
             clock_gettime(CLOCK_MONOTONIC, &tic);
             cudaMemcpy(&grid->cons[-offset],d_cons,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
             cudaCheckError();
@@ -350,7 +350,7 @@ void driver(GridCons *grid, Parameters *params) {
             cudaCheckError();
             clock_gettime(CLOCK_MONOTONIC, &toc);
             elapsed_sec = (double)(toc.tv_sec - tic.tv_sec) + 1e-9*(toc.tv_nsec-tic.tv_nsec);
-            size_in_gb = sizeof(real)*ntot*(2*nf+1)/1e9;;;;
+            size_in_gb = sizeof(real)*ntot*(2*nf+1)/1e9;
             rate = size_in_gb/elapsed_sec;
 #ifndef SILENT
             printf("Device to host copy of %.2e GB took %.2e ms, %.2e GB/s\n", elapsed_sec*1e3, size_in_gb,rate);
@@ -359,6 +359,7 @@ void driver(GridCons *grid, Parameters *params) {
             sprintf(fname, "%s_%d",params->outputname, n_1d);
             snapshot(fname,grid,params);
 #else
+            /* DIMS > 1 so 1d outputs are averages */
         	//output_1d(n_1d, dt_curr, grid, params);
 #endif
         	n_1d += 1;
@@ -366,7 +367,7 @@ void driver(GridCons *grid, Parameters *params) {
 #ifdef DIMS2
         if (grid->time  >= t_2d) {
 #ifndef DIMS3
-            /* 2d outputs */
+            /* 2d outputs ares snapshots*/
             clock_gettime(CLOCK_MONOTONIC, &tic);
             cudaMemcpy(&grid->cons[-offset],d_cons,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
             cudaCheckError();
@@ -388,14 +389,16 @@ void driver(GridCons *grid, Parameters *params) {
             sprintf(fname, "%s_%d",params->outputname, n_2d);
             snapshot(fname,grid,params);
 #else
-            //output_2d(grid,params);
+            /* DIMS > 2 so 2d outputs are averages */
+
+            //output_2d(n_2d, dt_curr,grid,params);
 #endif
         	n_2d += 1;
         }
 #endif
 #ifdef DIMS3
         if (grid->time  >= t_3d) {
-            /* 3d outputs */
+            /* 3d outputs are snapshots*/
             clock_gettime(CLOCK_MONOTONIC, &tic);
             cudaMemcpy(&grid->cons[-offset],d_cons,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
             cudaCheckError();
@@ -416,6 +419,8 @@ void driver(GridCons *grid, Parameters *params) {
 #endif
             sprintf(fname, "%s_%d",params->outputname, n_3d);
             snapshot(fname,grid,params);
+
+            //output_3d(n_3d, dt_curr,grid,params);
         	n_3d += 1;
         }
 #endif
