@@ -20,7 +20,8 @@ void driver(GridCons *grid, Parameters *params) {
     real size_in_gb;
     real elapsed, elapsed_sec, elapsed_nsec, rate;
     real dt, dt_min, end_time, dt_max; 
-
+    real tstart = grid->time;
+    real tstop = params->tend;
     char fname[512];
     int dump_count = 0;
 
@@ -35,23 +36,33 @@ void driver(GridCons *grid, Parameters *params) {
     int n_0d = 1; // volume averaged outputs
     int n_1d = 1; // 1D outputs
     real t_0d, t_1d;
-    real dt_0d = (params->tend - grid->time)/(real)(params->nout0d);
+    real dt_0d = (tstop - tstart)/(real)(params->nout0d);
     if (dt_0d < 0) dt_0d = 1e99; // No 0d outputs
-    real dt_1d = (params->tend - grid->time)/(real)(params->nout1d);
+    else printf("Time between %d, 0D outputs is %.3e\n",params->nout0d,dt_0d);
+
+    real dt_1d = (tstop - tstart)/(real)(params->nout1d);
     if (dt_1d < 0) dt_1d = 1e99; // No 1d outputs
+    else printf("Time between %d, 1D outputs is %.3e\n",params->nout1d,dt_1d);
+
 
 #ifdef DIMS2
     int n_2d = 1; // 2D outputs
     real t_2d;
-    real dt_2d = (params->tend - grid->time)/(real)(params->nout2d);
+    real dt_2d = (tstop - tstart)/(real)(params->nout2d);
     if (dt_2d < 0) dt_2d = 1e99; // No 2d outputs
+    else printf("Time between %d, 2D outputs is %.3e\n",params->nout2d,dt_2d);
+
 #endif
 #ifdef DIMS3
     int n_3d = 1; // 3D outputs
     real t_3d;
-    real dt_3d = (params->tend - grid->time)/(real)(params->nout3d);
+    real dt_3d = (params->tend - tstart)/(real)(params->nout3d);
     if (dt_3d < 0) dt_3d = 1e99; // No 3d outputs
+    else printf("Time between %d, 3D outputs is %.3e\n",params->nout3d,dt_3d);
+
 #endif
+
+
 
 
 
@@ -160,7 +171,8 @@ void driver(GridCons *grid, Parameters *params) {
     printf("Device allocation took %.2e ms\n", elapsed_sec*1e3);
 #endif
 
-    dt_max = params->tend-grid->time;
+    printf("Evolving from %.3e to %.3e\n",tstart,tstop);
+    dt_max = tstop - tstart;
     /* Set initial bc and get first timestep */
     dt = set_bc_timestep(dt_max, 
             d_cons,
@@ -176,7 +188,7 @@ void driver(GridCons *grid, Parameters *params) {
             &nan_res,
             grid,params);
 
-    sprintf(fname, "%s_%d.h5",params->outputname, 0);
+    sprintf(fname, "%s_%d",params->outputname, 0);
 #ifdef DIMS3
     snapshot_3d(fname, grid, params);
 #else
@@ -191,13 +203,15 @@ void driver(GridCons *grid, Parameters *params) {
      */
     do {
         /* compute when next outputs are */
-    	t_0d = n_0d * dt_0d;
-    	t_1d = n_1d * dt_1d;
+    	t_0d = tstart + n_0d * dt_0d;
+    	t_1d = tstart + n_1d * dt_1d;
+
 #ifdef DIMS2
-    	t_2d = n_2d * dt_2d;
+    	t_2d = tstart + n_2d * dt_2d;
+
 #endif
 #ifdef DIMS3
-    	t_3d = n_3d * dt_3d;
+    	t_3d = tstart + n_3d * dt_3d;
 #endif
 
         /* Compute smallest time until nearest outptu */
@@ -324,7 +338,7 @@ void driver(GridCons *grid, Parameters *params) {
             remove("DUMP");
         }
 
-        /* Convet to primitives */
+        /* Convert to primitives */
 
         cons_to_prim<<<grid->gridSize_update_cons, grid->blockSize_update_cons>>>(d_cons,d_intenergy,d_UL_1,params->gamma-1,
     	 grid->nx[0],grid->nx[1],grid->nx[2], size_x1, grid->size_x12, ntot, offset, nf);
@@ -337,7 +351,7 @@ void driver(GridCons *grid, Parameters *params) {
         }
         if (grid->time >= t_1d) {
 #ifndef DIMS2
-            /* 1d outputs */
+            /* 1d outputs are snapshots*/
             clock_gettime(CLOCK_MONOTONIC, &tic);
             cudaMemcpy(&grid->cons[-offset],d_cons,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
             cudaCheckError();
@@ -350,7 +364,7 @@ void driver(GridCons *grid, Parameters *params) {
             cudaCheckError();
             clock_gettime(CLOCK_MONOTONIC, &toc);
             elapsed_sec = (double)(toc.tv_sec - tic.tv_sec) + 1e-9*(toc.tv_nsec-tic.tv_nsec);
-            size_in_gb = sizeof(real)*ntot*(2*nf+1)/1e9;;;;
+            size_in_gb = sizeof(real)*ntot*(2*nf+1)/1e9;
             rate = size_in_gb/elapsed_sec;
 #ifndef SILENT
             printf("Device to host copy of %.2e GB took %.2e ms, %.2e GB/s\n", elapsed_sec*1e3, size_in_gb,rate);
@@ -359,6 +373,7 @@ void driver(GridCons *grid, Parameters *params) {
             sprintf(fname, "%s_%d",params->outputname, n_1d);
             snapshot(fname,grid,params);
 #else
+            /* DIMS > 1 so 1d outputs are averages */
         	//output_1d(n_1d, dt_curr, grid, params);
 #endif
         	n_1d += 1;
@@ -366,7 +381,7 @@ void driver(GridCons *grid, Parameters *params) {
 #ifdef DIMS2
         if (grid->time  >= t_2d) {
 #ifndef DIMS3
-            /* 2d outputs */
+            /* 2d outputs ares snapshots*/
             clock_gettime(CLOCK_MONOTONIC, &tic);
             cudaMemcpy(&grid->cons[-offset],d_cons,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
             cudaCheckError();
@@ -388,14 +403,16 @@ void driver(GridCons *grid, Parameters *params) {
             sprintf(fname, "%s_%d",params->outputname, n_2d);
             snapshot(fname,grid,params);
 #else
-            //output_2d(grid,params);
+            /* DIMS > 2 so 2d outputs are averages */
+
+            //output_2d(n_2d, dt_curr,grid,params);
 #endif
         	n_2d += 1;
         }
 #endif
 #ifdef DIMS3
         if (grid->time  >= t_3d) {
-            /* 3d outputs */
+            /* 3d outputs are snapshots*/
             clock_gettime(CLOCK_MONOTONIC, &tic);
             cudaMemcpy(&grid->cons[-offset],d_cons,sizeof(real)*ntot*nf,cudaMemcpyDeviceToHost);
             cudaCheckError();
@@ -416,6 +433,8 @@ void driver(GridCons *grid, Parameters *params) {
 #endif
             sprintf(fname, "%s_%d",params->outputname, n_3d);
             snapshot(fname,grid,params);
+
+            //output_3d(n_3d, dt_curr,grid,params);
         	n_3d += 1;
         }
 #endif
