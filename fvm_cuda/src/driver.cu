@@ -20,7 +20,8 @@ void driver(GridCons *grid, Parameters *params) {
     real size_in_gb;
     real elapsed, elapsed_sec, elapsed_nsec, rate;
     real dt, dt_min, end_time, dt_max; 
-
+    real tstart = grid->time;
+    real tstop = params->tend;
     char fname[512];
     int dump_count = 0;
 
@@ -35,23 +36,33 @@ void driver(GridCons *grid, Parameters *params) {
     int n_0d = 1; // volume averaged outputs
     int n_1d = 1; // 1D outputs
     real t_0d, t_1d;
-    real dt_0d = (params->tend - grid->time)/(real)(params->nout0d);
+    real dt_0d = (tstop - tstart)/(real)(params->nout0d);
     if (dt_0d < 0) dt_0d = 1e99; // No 0d outputs
-    real dt_1d = (params->tend - grid->time)/(real)(params->nout1d);
+    else printf("Time between %d, 0D outputs is %.3e\n",params->nout0d,dt_0d);
+
+    real dt_1d = (tstop - tstart)/(real)(params->nout1d);
     if (dt_1d < 0) dt_1d = 1e99; // No 1d outputs
+    else printf("Time between %d, 1D outputs is %.3e\n",params->nout1d,dt_1d);
+
 
 #ifdef DIMS2
     int n_2d = 1; // 2D outputs
     real t_2d;
-    real dt_2d = (params->tend - grid->time)/(real)(params->nout2d);
+    real dt_2d = (tstop - tstart)/(real)(params->nout2d);
     if (dt_2d < 0) dt_2d = 1e99; // No 2d outputs
+    else printf("Time between %d, 2D outputs is %.3e\n",params->nout2d,dt_2d);
+
 #endif
 #ifdef DIMS3
     int n_3d = 1; // 3D outputs
     real t_3d;
-    real dt_3d = (params->tend - grid->time)/(real)(params->nout3d);
+    real dt_3d = (params->tend - tstart)/(real)(params->nout3d);
     if (dt_3d < 0) dt_3d = 1e99; // No 3d outputs
+    else printf("Time between %d, 3D outputs is %.3e\n",params->nout3d,dt_3d);
+
 #endif
+
+
 
 
 
@@ -160,7 +171,8 @@ void driver(GridCons *grid, Parameters *params) {
     printf("Device allocation took %.2e ms\n", elapsed_sec*1e3);
 #endif
 
-    dt_max = params->tend-grid->time;
+    printf("Evolving from %.3e to %.3e\n",tstart,tstop);
+    dt_max = tstop - tstart;
     /* Set initial bc and get first timestep */
     dt = set_bc_timestep(dt_max, 
             d_cons,
@@ -176,7 +188,7 @@ void driver(GridCons *grid, Parameters *params) {
             &nan_res,
             grid,params);
 
-    sprintf(fname, "%s_%d.h5",params->outputname, 0);
+    sprintf(fname, "%s_%d",params->outputname, 0);
 #ifdef DIMS3
     snapshot_3d(fname, grid, params);
 #else
@@ -191,13 +203,15 @@ void driver(GridCons *grid, Parameters *params) {
      */
     do {
         /* compute when next outputs are */
-    	t_0d = n_0d * dt_0d;
-    	t_1d = n_1d * dt_1d;
+    	t_0d = tstart + n_0d * dt_0d;
+    	t_1d = tstart + n_1d * dt_1d;
+
 #ifdef DIMS2
-    	t_2d = n_2d * dt_2d;
+    	t_2d = tstart + n_2d * dt_2d;
+
 #endif
 #ifdef DIMS3
-    	t_3d = n_3d * dt_3d;
+    	t_3d = tstart + n_3d * dt_3d;
 #endif
 
         /* Compute smallest time until nearest outptu */

@@ -5,8 +5,7 @@
 
 
 void cons_to_prim_grid(GridCons *grid, Parameters *params);
-
-
+void prim_to_cons_grid(GridCons *grid, Parameters *params);
 
 
 int main(int argc, char *argv[]) {
@@ -121,6 +120,7 @@ int main(int argc, char *argv[]) {
 
     if (restart) {
     	read_restart(restartfile,grid,params);
+    	prim_to_cons_grid(grid,params);
     }
     else {
     	init_gas(grid,params);
@@ -211,6 +211,30 @@ void cons_to_prim_grid(GridCons *grid, Parameters *params) {
 		prim[indx + 3*ntot] = cons[indx + 3*ntot]/cons[indx];
 		prim[indx + 4*ntot] = intenergy[indx] * g1;
 		for(n=5;n<nf;n++) prim[indx + n*ntot] = cons[indx + n*ntot]/cons[indx];
+	}
+	return;
+}
+void prim_to_cons_grid(GridCons *grid, Parameters *params) {
+	int indx,n;
+	int ntot = grid->ntot;
+	int nf = grid->nf;
+	int offset = grid->offset;
+	real ke;
+	real *cons = grid->cons;
+	real *prim = grid->prim;
+	real *intenergy = grid->intenergy;
+	real g1 = params->gamma-1;
+	for(indx=-offset;indx<ntot-offset;indx++) {
+		cons[indx] = prim[indx];
+		cons[indx + 1*ntot] = prim[indx + 1*ntot]*prim[indx];
+		cons[indx + 2*ntot] = prim[indx + 2*ntot]*prim[indx];
+		cons[indx + 3*ntot] = prim[indx + 3*ntot]*prim[indx];
+		ke = .5*prim[indx]*( prim[indx + 1*ntot]*prim[indx + 1*ntot] +
+				             prim[indx + 2*ntot]*prim[indx + 2*ntot] +
+				             prim[indx + 3*ntot]*prim[indx + 3*ntot]);
+		intenergy[indx] = prim[indx + 4*ntot]/g1;
+		cons[indx + 4*ntot] = intenergy[indx] + ke;
+		for(n=5;n<nf;n++) cons[indx + n*ntot] = prim[indx + n*ntot]*prim[indx];
 	}
 	return;
 }

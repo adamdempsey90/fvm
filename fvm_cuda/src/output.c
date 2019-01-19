@@ -28,9 +28,13 @@ void read_hdf5_real(real *data, hid_t group_path, const char *name);
 void snapshot_1d(char *name, GridCons *grid, Parameters *params) {
 
     int size_x1 = grid->size_x1;
+    int size_x2 = grid->size_x2;
+    int size_x3 = grid->size_x3;
     int ntot = grid->ntot;
     int nf = grid->nf;
     real *xm1 = &grid->xm1[-NGHX1];
+    real *xm2 = &grid->xm2[-NGHX2];
+    real *xm3 = &grid->xm3[-NGHX3];
     real *prim = &grid->prim[-grid->offset];
 
     char fname[512];
@@ -45,11 +49,14 @@ void snapshot_1d(char *name, GridCons *grid, Parameters *params) {
 
 	hsize_t dims3[1];
 	hsize_t dims_single[1] = {1};
-	hsize_t dims_x1[1];
+	hsize_t dims_x1[1],dims_x2[1],dims_x3[1];
 	real time[1] = {grid->time};
 	real gamma[1] = {params->gamma};
 
 	dims_x1[0] = size_x1 + 1;
+	dims_x2[0] = size_x2 + 1;
+	dims_x3[0] = size_x3 + 1;
+
 	dims3[0] = size_x1;
 
 	file_id = H5Fcreate(fname, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
@@ -59,8 +66,13 @@ void snapshot_1d(char *name, GridCons *grid, Parameters *params) {
 	write_hdf5_real(time,dims_single,1,data_id,"time");
 	write_hdf5_real(gamma,dims_single,1,data_id,"Gamma");
 	write_hdf5_real(xm1,dims_x1,1,data_id,"xm1");
+	write_hdf5_real(xm2,dims_x2,1,data_id,"xm2");
+	write_hdf5_real(xm3,dims_x3,1,data_id,"xm3");
+
 	write_hdf5_real(&prim[0*ntot], dims3, 1, data_id, "Density");
 	write_hdf5_real(&prim[1*ntot], dims3, 1, data_id, "Vx1");
+	write_hdf5_real(&prim[2*ntot], dims3, 1, data_id, "Vx2");
+	write_hdf5_real(&prim[3*ntot], dims3, 1, data_id, "Vx3");
 	write_hdf5_real(&prim[4*ntot], dims3, 1, data_id, "Pressure");
 
 	for(i=5;i<nf;i++) {
@@ -79,10 +91,12 @@ void snapshot_2d(char *name, GridCons *grid, Parameters *params) {
 
     int size_x1 = grid->size_x1;
     int size_x2 = grid->size_x2;
+    int size_x3 = grid->size_x3;
     int ntot = grid->ntot;
     int nf = grid->nf;
     real *xm1 = &grid->xm1[-NGHX1];
     real *xm2 = &grid->xm2[-NGHX2];
+    real *xm3 = &grid->xm3[-NGHX3];
     real *prim = &grid->prim[-grid->offset];
     char fname[512];
     sprintf(fname, "%s/%s.h5", params->outputdir,name);
@@ -96,12 +110,14 @@ void snapshot_2d(char *name, GridCons *grid, Parameters *params) {
 
 	hsize_t dims3[2];
 	hsize_t dims_single[1] = {1};
-	hsize_t dims_x1[1], dims_x2[1];
+	hsize_t dims_x1[1],dims_x2[1],dims_x3[1];
 	real time[1] = {grid->time};
 	real gamma[1] = {params->gamma};
 
-	dims_x1[0] =size_x1 + 1;
+	dims_x1[0] = size_x1 + 1;
 	dims_x2[0] = size_x2 + 1;
+	dims_x3[0] = size_x3 + 1;
+
 	dims3[0] = size_x1;
 	dims3[1] = size_x2;
 
@@ -112,9 +128,12 @@ void snapshot_2d(char *name, GridCons *grid, Parameters *params) {
 	write_hdf5_real(gamma,dims_single,1,data_id,"Gamma");
 	write_hdf5_real(xm1,dims_x1,1,data_id,"xm1");
 	write_hdf5_real(xm2,dims_x2,1,data_id,"xm2");
+	write_hdf5_real(xm3,dims_x3,1,data_id,"xm3");
+
 	write_hdf5_real(&prim[0*ntot], dims3, 2, data_id, "Density");
 	write_hdf5_real(&prim[1*ntot], dims3, 2, data_id, "Vx1");
 	write_hdf5_real(&prim[2*ntot], dims3, 2, data_id, "Vx2");
+	write_hdf5_real(&prim[3*ntot], dims3, 2, data_id, "Vx3");
 	write_hdf5_real(&prim[4*ntot], dims3, 2, data_id, "Pressure");
 
 	for(i=5;i<nf;i++) {
@@ -232,17 +251,12 @@ void read_restart(const char *fname, GridCons *grid, Parameters *params) {
     offset = grid->offset;
 
     real *xm1 = &grid->xm1[-NGHX1];
+    real *xm2 = &grid->xm2[-NGHX2];
+    real *xm3 = &grid->xm3[-NGHX3];
+
     real *vx1       = &grid->prim[1*ntot-offset];
     real *vx2       = &grid->prim[2*ntot-offset];
     real *vx3       = &grid->prim[3*ntot-offset];
-#ifdef DIMS2
-    real *xm2 = &grid->xm2[-NGHX2];
-
-#endif
-#ifdef DIMS3
-    real *xm3 = &grid->xm3[-NGHX3];
-
-#endif
 
 
     real *rho       = &grid->prim[0*ntot-offset];
@@ -269,15 +283,13 @@ void read_restart(const char *fname, GridCons *grid, Parameters *params) {
     read_hdf5_real(&grid->time,data_id,"time");
     read_hdf5_real(&params->gamma,data_id,"Gamma");
     read_hdf5_real(xm1,data_id,"xm1");
-    read_hdf5_real(vx1,data_id, "Vx1");
-#ifdef DIMS2
     read_hdf5_real(xm2,data_id,"xm2");
-    read_hdf5_real(vx2,data_id,"Vx2");
-#endif
-#ifdef DIMS3
     read_hdf5_real(xm3,data_id,"xm3");
+
+    read_hdf5_real(vx1,data_id,"Vx1");
+    read_hdf5_real(vx2,data_id,"Vx2");
     read_hdf5_real(vx3,data_id,"Vx3");
-#endif
+
     read_hdf5_real(rho,data_id, "Density");
     read_hdf5_real(pres,data_id, "Pressure");
 
@@ -293,27 +305,7 @@ void read_restart(const char *fname, GridCons *grid, Parameters *params) {
     H5CheckError(   H5Gclose(data_id)    )
     H5CheckError(   H5Fclose(file_id)    )
 
-    /* Convert to cons */
 
-    for(i=0;i<grid->ntot;i++) {
-    	grid->cons[i + 0*ntot + offset] = rho[i];
-    	grid->cons[i + 1*ntot + offset] = rho[i] *vx1[i];
-#ifdef DIMS2
-    	grid->cons[i + 2*ntot + offset] = rho[i] *vx2[i];
-#else
-    	grid->cons[i + 2*ntot + offset] = 0;
-#endif
-#ifdef DIMS3
-    	grid->cons[i + 3*ntot + offset] = rho[i] *vx3[i];
-#else
-    	grid->cons[i + 3*ntot + offset] = 0;
-#endif
-    	grid->intenergy[i + offset] = pres[i]/(params->gamma-1);
-    	grid->cons[i + 4*ntot + offset] = pres[i]/(params->gamma-1)
-    						   + .5*rho[i]*( vx1[i]*vx1[i] + vx2[i]*vx2[i] + vx3[i]*vx3[i]);
-    	for(n=5;n<grid->nf;n++) grid->cons[i+n*ntot + offset] = rho[i]*grid->prim[i + n*ntot];
-
-    }
     return;
 
 }
@@ -352,14 +344,5 @@ void read_hdf5_real(real *data, hid_t group_path, const char *name) {
   return;
 }
 
-void history_file(real time, real *out, int n, char *fname) {
-
-	FILE *f = fopen(fname, "a");
-	fprintf(f,"%.16f",time);
-	for(int i=0;i<n;i++) fprintf(f,"\t%.16f",out[i]);
-	fprintf(f,"\n");
-	fclose(f);
-
-}
 
 
