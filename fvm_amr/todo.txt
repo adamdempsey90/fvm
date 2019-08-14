@@ -1,0 +1,15 @@
+
+List of morton std::maps for each level
+morton<MAX>, morton<MAX-2>, morton<MAX-4>, etc. ?
+
+Flag for leaf nodes, non leaf nodes are still stored at lower levels.
+ 
+Searching functions are the same. Start searches at level above. 
+
+Now can do time update level by level. 
+Refinement tagging also level by level, starting at max level. Can auto set next level up if refined neighbor is tagged. 
+
+
+
+Patch objects need to store coarse/fine flux correction arrays.
+
