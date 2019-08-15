@@ -38,7 +38,7 @@ class Domain {
      * must be set via N with N = 2*(max level-1)
      */
 
-    private:
+    public:
 
         real xmin, xmax, ymin, ymax; // Domain extent
         uint max_level = 1 + N/2;
@@ -48,7 +48,7 @@ class Domain {
          */
         Mesh<N,Patch> patches[1+N/2]; 
     
-        vector<int> refine; // -1 -> derefine, 0 -> nothing, 1 -> refine
+        std::queue<Patch> refinelist;
 
     public:
         Domain();

@@ -1,6 +1,25 @@
 #include "Domain.h"
 
 
+template<size_t N>
+Domain<N>::Domain() {
+    /* Initialize Domain */
+
+    xmin = 0.;
+    xmax = 1.;
+    ymin = 0.;
+    ymax = 0.;
+
+    /* Create initial root patch */
+    morton<N> key;
+    key.reset();
+    Patch *root = new Patch;
+
+    /* Insert root into l=0 mesh */
+    patches[0].insert({key,root});
+
+
+}
 
 template<size_t N>
 void Domain<N>::refine_patch(morton<N> key, Patch *child) {
@@ -36,10 +55,30 @@ void Domain<N>::derefine_patch(morton<N> key, Patch *child) {
 template<size_t N>
 void Domain<N>::refine(void) {
     /* Search for patches which need to be refined 
-     * and refine them.
+     * and adds them to the queue
      */
 
+    int refine;
+    morton<N> key;
+    Mesh<N,Patch> *curr;
+    Patch *patch;
+    Patch *neighbors;
     /* Loop through levels in mesh starting at finest */
+    for(int lvl=max_level-1; lvl > 0; lvl--) {
+        curr = patches[lvl];
+        
+        for (Mesh<N,Patch>::iterator it=curr.begin(); it!=curr.end(); ++it) {
+            key = it->first;
+            patch = it->second;
+            get_neighbors(key,patch,neighbors);
+            refine = criterion(patch, neighbors);
+            patch.refine = refine;
+            if (refine == 1) {
+                refinelist.push(patch);
+            } 
+
+        }
+    }
 
 
     /* Get neighbor list */
